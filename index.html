@@ -267,6 +267,12 @@
             data.forEach((item) => {
                 const idx = dadosTecnicos.indexOf(item);
                 const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
+                
+                // Formatação do telefone como link clicável para ligação
+                const telFormatado = item.tel && item.tel !== '-' 
+                    ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold" title="Clique para ligar"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
+                    : '-';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="fw-bold" style="color: #ffffff !important;">${item.nome}</td>
@@ -277,7 +283,7 @@
                     <td><span class="badge bg-secondary badge-estado">${item.estado}</span></td>
                     <td class="fw-semibold text-success">${item.fat}</td>
                     <td style="color: #adb5bd !important;">${item.envio}</td>
-                    <td style="color: #ffffff !important;">${item.tel}</td>
+                    <td>${telFormatado}</td>
                     <td class="text-nowrap">
                         <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicao(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
                         <button class="btn btn-outline-danger btn-sm" onclick="removerTecnico(${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>

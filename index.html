@@ -62,7 +62,7 @@
                     <div class="upload-zone d-flex flex-column justify-content-center h-100" onclick="document.getElementById('inputPlanilha').click();">
                         <i class="fas fa-cloud-upload-alt fa-2x text-secondary mb-2"></i>
                         <p class="mb-1 fw-semibold text-light">Clique aqui ou arraste sua planilha (.xlsx, .xls, .csv)</p>
-                        <small class="text-muted">Os dados importados agora ficam salvos automaticamente!</small>
+                        <small class="text-muted">Os dados importados agora vão para a nuvem!</small>
                         <input type="file" id="inputPlanilha" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilha(event)">
                     </div>
                 </div>
@@ -162,12 +162,28 @@
                 </table>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-3 px-2">
-                <span class="text-muted small" id="contadorResultados">Nenhum registro carregado. Importe uma planilha ou adicione técnicos manualmente.</span>
+                <span class="text-muted small" id="contadorResultados">Carregando dados da nuvem...</span>
             </div>
         </div>
     </div>
 
-    <script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2LafGVK50k7uMmNPz7Hw9X9Ozhtoozk",
+            authDomain: "sistematecnicos-e1e6e.firebaseapp.com",
+            projectId: "sistematecnicos-e1e6e",
+            storageBucket: "sistematecnicos-e1e6e.appspot.com",
+            messagingSenderId: "990062939383",
+            appId: "1:990062939383:web:893deafebae20e26ce57f2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
         let dadosTecnicos = [];
 
         const tbody = document.getElementById('tbodyTecnicos');
@@ -182,21 +198,22 @@
         const btnSalvar = document.getElementById('btnSalvar');
         const btnCancelar = document.getElementById('btnCancelar');
 
-        function carregarDadosSalvos() {
-            const salvos = localStorage.getItem('dadosTecnicos_sistema');
-            if (salvos) {
-                try {
-                    dadosTecnicos = JSON.parse(salvos);
-                    atualizarDropdownEstados();
-                    filtrarDados();
-                } catch(e) {
-                    console.error("Erro ao carregar dados do navegador", e);
-                }
-            }
+        function iniciarEscutaFirebase() {
+            const dbRef = ref(db, 'tecnicos');
+            onValue(dbRef, (snapshot) => {
+                const data = snapshot.val();
+                dadosTecnicos = data ? data : [];
+                atualizarDropdownEstados();
+                filtrarDados();
+            });
         }
 
-        function salvarDadosNoNavegador() {
-            localStorage.setItem('dadosTecnicos_sistema', JSON.stringify(dadosTecnicos));
+        function salvarDadosNoFirebase() {
+            set(ref(db, 'tecnicos'), dadosTecnicos)
+                .catch((error) => {
+                    console.error("Erro ao salvar no Firebase: ", error);
+                    alert("Erro ao salvar na nuvem. Verifique sua conexão.");
+                });
         }
 
         function normalizar(txt) {
@@ -282,7 +299,7 @@
             renderTable(filtrados);
         }
 
-        function processarPlanilha(e) {
+        window.processarPlanilha = function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -357,20 +374,20 @@
                     }
 
                     dadosTecnicos = lista;
-                    salvarDadosNoNavegador();
+                    salvarDadosNoFirebase();
                     atualizarDropdownEstados();
                     filtrarDados();
                     e.target.value = '';
-                    alert(`Sucesso! ${dadosTecnicos.length} técnicos importados e salvos permanentemente.`);
+                    alert(`Sucesso! ${dadosTecnicos.length} técnicos importados e salvos na nuvem.`);
                 } catch (err) {
                     console.error(err);
                     alert("Erro ao ler o arquivo. Certifique-se de carregar um arquivo Excel ou CSV válido.");
                 }
             };
             reader.readAsArrayBuffer(file);
-        }
+        };
 
-        function prepararEdicao(idx) {
+        window.prepararEdicao = function(idx) {
             const item = dadosTecnicos[idx];
             document.getElementById('editIndex').value = idx;
             document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
@@ -387,15 +404,15 @@
             btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Salvar Alterações`;
             btnCancelar.classList.remove('d-none');
             formNovoTecnico.scrollIntoView({ behavior: 'smooth' });
-        }
+        };
 
-        function cancelarEdicao() {
+        window.cancelarEdicao = function() {
             document.getElementById('editIndex').value = '-1';
             formNovoTecnico.reset();
             formTitulo.innerHTML = `<i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente`;
             btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Adicionar Técnico`;
             btnCancelar.classList.add('d-none');
-        }
+        };
 
         formNovoTecnico.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -416,39 +433,39 @@
 
             if (editIdx >= 0) {
                 dadosTecnicos[editIdx] = obj;
-                alert("Técnico atualizado e salvo!");
+                alert("Técnico atualizado na nuvem!");
                 cancelarEdicao();
             } else {
                 dadosTecnicos.unshift(obj);
                 formNovoTecnico.reset();
-                alert("Técnico cadastrado e salvo!");
+                alert("Técnico cadastrado na nuvem!");
             }
 
-            salvarDadosNoNavegador();
+            salvarDadosNoFirebase();
             atualizarDropdownEstados();
             filtrarDados();
         });
 
-        function removerTecnico(idx) {
+        window.removerTecnico = function(idx) {
             if (confirm("Deseja realmente remover este técnico?")) {
                 dadosTecnicos.splice(idx, 1);
-                salvarDadosNoNavegador();
+                salvarDadosNoFirebase();
                 atualizarDropdownEstados();
                 filtrarDados();
             }
-        }
+        };
 
-        function limparBancoDados() {
-            if (confirm("Tem certeza que deseja apagar todos os técnicos salvos no sistema?")) {
+        window.limparBancoDados = function() {
+            if (confirm("Tem certeza que deseja apagar todos os técnicos salvos na nuvem?")) {
                 dadosTecnicos = [];
-                localStorage.removeItem('dadosTecnicos_sistema');
+                salvarDadosNoFirebase();
                 atualizarDropdownEstados();
                 filtrarDados();
-                alert("Banco de dados local limpo com sucesso.");
+                alert("Banco de dados na nuvem limpo com sucesso.");
             }
-        }
+        };
 
-        function exportarPlanilha() {
+        window.exportarPlanilha = function() {
             if (dadosTecnicos.length === 0) return;
             const dataExp = dadosTecnicos.map(i => ({
                 'Nome': i.nome,
@@ -465,7 +482,7 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Técnicos");
             XLSX.writeFile(wb, "Tecnicos_Atualizado.xlsx");
-        }
+        };
 
         searchNome.addEventListener('input', filtrarDados);
         filterTipo.addEventListener('change', filtrarDados);
@@ -478,7 +495,7 @@
             renderTable(dadosTecnicos);
         });
 
-        carregarDadosSalvos();
+        iniciarEscutaFirebase();
     </script>
 </body>
 </html>

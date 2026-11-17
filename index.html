@@ -34,6 +34,18 @@
 
         .table-dark { background-color: #1a1a1a !important; color: #ffffff !important; }
 
+        /* Tela de Bloqueio */
+        #telaBloqueio {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #181818;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
         @media (max-width: 768px) {
             .navbar-brand { font-size: 0.95rem !important; }
             .container-fluid { padding-left: 5px !important; padding-right: 5px !important; }
@@ -43,144 +55,187 @@
         }
     </style>
 </head>
-<body onload="verificarAcessoInicial()">
+<body>
 
-    <nav class="navbar navbar-dark shadow-sm mb-4">
-        <div class="container-fluid px-2 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 py-2">
-            <span class="navbar-brand mb-0 h1 text-center text-md-start"><i class="fas fa-users-cog me-2"></i>Sistema de Gestão e Consulta de Técnicos</span>
-            <div class="d-flex flex-wrap justify-content-center gap-2">
-                <!-- Botão de Admin -->
-                <button id="btnAdminToggle" class="btn btn-warning btn-sm fw-semibold text-dark" onclick="alternarModoAdmin()">
-                    <i class="fas fa-lock me-1" id="iconeAdmin"></i> <span id="textoAdmin">Modo Admin (Bloqueado)</span>
-                </button>
-                <button id="btnLimparBanco" class="btn btn-outline-danger btn-sm fw-semibold d-none admin-element" onclick="limparBancoDados()" title="Apaga todos os dados salvos">
-                    <i class="fas fa-trash-alt me-1"></i> Limpar Dados
-                </button>
-                <button id="btnExportar" class="btn btn-light btn-sm fw-semibold text-primary d-none" onclick="exportarPlanilha()">
-                    <i class="fas fa-file-export me-1"></i> Baixar .xlsx
-                </button>
+    <!-- Tela de Login Inicial (Com campo de senha mascarado ***) -->
+    <div id="telaBloqueio">
+        <div class="card p-4 shadow-lg" style="max-width: 380px; width: 100%;">
+            <div class="text-center mb-3">
+                <i class="fas fa-shield-alt fa-3x text-primary mb-2"></i>
+                <h4 class="fw-bold">Acesso Restrito</h4>
+                <p class="text-muted small">Digite a senha para visualizar os técnicos</p>
             </div>
+            <form id="formLoginInicial">
+                <div class="mb-3">
+                    <input type="password" id="inputSenhaInicial" class="form-control text-center" placeholder="••••" required autofocus>
+                </div>
+                <div id="msgErroLogin" class="text-danger small text-center mb-2 d-none">Senha incorreta! Tente novamente.</div>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                    <i class="fas fa-sign-in-alt me-1"></i> Entrar
+                </button>
+            </form>
         </div>
-    </nav>
+    </div>
 
-    <div class="container-fluid px-2 px-md-4">
-        <!-- Painel Admin: Importar e Cadastrar (Oculto por padrão) -->
-        <div id="painelAdmin" class="row g-3 mb-4 d-none">
-            <div class="col-lg-4">
-                <div class="card p-3 h-100 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Atualizar via Planilha</h5>
-                        <p class="text-muted small mb-3">Envie uma nova planilha Excel ou CSV para atualizar os dados na nuvem.</p>
+    <!-- Modal para Senha de Administrador (Com campo mascarado ***) -->
+    <div class="modal fade" id="modalAdmin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h6 class="modal-title"><i class="fas fa-user-lock me-2 text-warning"></i>Modo Administrador</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formLoginAdmin">
+                    <div class="modal-body">
+                        <label class="form-label small text-muted">Digite a senha de administrador:</label>
+                        <input type="password" id="inputSenhaAdmin" class="form-control text-center" placeholder="••••" required>
+                        <div id="msgErroAdmin" class="text-danger small text-center mt-2 d-none">Senha incorreta!</div>
                     </div>
-                    <div>
-                        <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilha').click();">
-                            <i class="fas fa-cloud-upload-alt me-2"></i> Selecionar Planilha (.xlsx)
-                        </button>
-                        <input type="file" id="inputPlanilha" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilha(event)">
+                    <div class="modal-footer border-secondary">
+                        <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold text-dark">Desbloquear</button>
                     </div>
-                </div>
-            </div>
-
-            <div class="col-lg-8">
-                <div class="card p-3 h-100">
-                    <h5 class="card-title text-success mb-3" id="formTitulo"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente</h5>
-                    <form id="formNovoTecnico" class="row g-2">
-                        <input type="hidden" id="editIndex" value="-1">
-                        <div class="col-md-6">
-                            <input type="text" id="novoNome" class="form-control form-control-sm" placeholder="Nome do Técnico" required>
-                        </div>
-                        <div class="col-md-6">
-                            <input type="text" id="novaEmpresa" class="form-control form-control-sm" placeholder="Empresa" required>
-                        </div>
-                        <div class="col-md-8">
-                            <input type="text" id="novoBanco" class="form-control form-control-sm" placeholder="Dados Bancários / PIX" required>
-                        </div>
-                        <div class="col-md-4">
-                            <select id="novoTipo" class="form-select form-select-sm" required>
-                                <option value="PJ">PJ</option>
-                                <option value="PF">PF</option>
-                            </select>
-                        </div>
-                        <div class="col-md-5">
-                            <input type="text" id="novaCidade" class="form-control form-control-sm" placeholder="Cidade" required>
-                        </div>
-                        <div class="col-md-3">
-                            <input type="text" id="novoEstado" class="form-control form-control-sm" placeholder="UF (Ex: SP)" maxlength="2" required>
-                        </div>
-                        <div class="col-md-4">
-                            <input type="text" id="novoTel" class="form-control form-control-sm" placeholder="Telefone">
-                        </div>
-                        <div class="col-md-6">
-                            <input type="text" id="novoFat" class="form-control form-control-sm" placeholder="Cód. Faturamento">
-                        </div>
-                        <div class="col-md-6">
-                            <input type="text" id="novoEnvio" class="form-control form-control-sm" placeholder="Cód. Envio">
-                        </div>
-                        <div class="col-12 mt-2 d-flex gap-2">
-                            <button type="submit" id="btnSalvar" class="btn btn-success btn-sm w-100"><i class="fas fa-save me-1"></i> Adicionar Técnico</button>
-                            <button type="button" id="btnCancelar" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicao()"><i class="fas fa-times me-1"></i> Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filtros e Pesquisa -->
-        <div class="card p-3 p-md-4 mb-4">
-            <div class="row g-3">
-                <div class="col-md-5">
-                    <label for="searchNome" class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar por Nome, Empresa ou Cidade</label>
-                    <input type="text" id="searchNome" class="form-control" placeholder="Digite para filtrar...">
-                </div>
-                <div class="col-md-2">
-                    <label for="filterTipo" class="form-label fw-bold text-light"><i class="fas fa-id-badge me-1"></i> Tipo (PF/PJ)</label>
-                    <select id="filterTipo" class="form-select">
-                        <option value="">Todos (PF e PJ)</option>
-                        <option value="PJ">PJ</option>
-                        <option value="PF">PF</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="filterEstado" class="form-label fw-bold text-light"><i class="fas fa-filter me-1"></i> Filtrar por Estado (UF)</label>
-                    <select id="filterEstado" class="form-select">
-                        <option value="">Todos os Estados</option>
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button id="btnLimpar" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tabela -->
-        <div class="card p-2 p-md-3">
-            <div class="table-responsive">
-                <table class="table table-dark table-striped table-hover table-sm align-middle mb-0" id="tabelaTecnicos">
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Empresa</th>
-                            <th>Dados Bancários</th>
-                            <th>PF/PJ</th>
-                            <th>Cidade</th>
-                            <th>Estado</th>
-                            <th>Cód. Faturamento</th>
-                            <th>Cód. Envio</th>
-                            <th>Telefone</th>
-                            <th id="thAcoes" class="d-none">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyTecnicos">
-                    </tbody>
-                </table>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mt-3 px-2">
-                <span class="text-muted small" id="contadorResultados">Carregando dados da nuvem...</span>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDKs e Scripts -->
+    <div id="conteudoSistema" class="d-none">
+        <nav class="navbar navbar-dark shadow-sm mb-4">
+            <div class="container-fluid px-2 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 py-2">
+                <span class="navbar-brand mb-0 h1 text-center text-md-start"><i class="fas fa-users-cog me-2"></i>Sistema de Gestão e Consulta de Técnicos</span>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <button id="btnAdminToggle" class="btn btn-warning btn-sm fw-semibold text-dark" onclick="alternarModoAdmin()">
+                        <i class="fas fa-lock me-1" id="iconeAdmin"></i> <span id="textoAdmin">Modo Admin (Bloqueado)</span>
+                    </button>
+                    <button id="btnLimparBanco" class="btn btn-outline-danger btn-sm fw-semibold d-none admin-element" onclick="limparBancoDados()" title="Apaga todos os dados salvos">
+                        <i class="fas fa-trash-alt me-1"></i> Limpar Dados
+                    </button>
+                    <button id="btnExportar" class="btn btn-light btn-sm fw-semibold text-primary d-none" onclick="exportarPlanilha()">
+                        <i class="fas fa-file-export me-1"></i> Baixar .xlsx
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-2 px-md-4">
+            <!-- Painel Admin -->
+            <div id="painelAdmin" class="row g-3 mb-4 d-none">
+                <div class="col-lg-4">
+                    <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Atualizar via Planilha</h5>
+                            <p class="text-muted small mb-3">Envie uma nova planilha Excel ou CSV para atualizar os dados na nuvem.</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilha').click();">
+                                <i class="fas fa-cloud-upload-alt me-2"></i> Selecionar Planilha (.xlsx)
+                            </button>
+                            <input type="file" id="inputPlanilha" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilha(event)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="card p-3 h-100">
+                        <h5 class="card-title text-success mb-3" id="formTitulo"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente</h5>
+                        <form id="formNovoTecnico" class="row g-2">
+                            <input type="hidden" id="editIndex" value="-1">
+                            <div class="col-md-6">
+                                <input type="text" id="novoNome" class="form-control form-control-sm" placeholder="Nome do Técnico" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" id="novaEmpresa" class="form-control form-control-sm" placeholder="Empresa" required>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" id="novoBanco" class="form-control form-control-sm" placeholder="Dados Bancários / PIX" required>
+                            </div>
+                            <div class="col-md-4">
+                                <select id="novoTipo" class="form-select form-select-sm" required>
+                                    <option value="PJ">PJ</option>
+                                    <option value="PF">PF</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" id="novaCidade" class="form-control form-control-sm" placeholder="Cidade" required>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" id="novoEstado" class="form-control form-control-sm" placeholder="UF (Ex: SP)" maxlength="2" required>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" id="novoTel" class="form-control form-control-sm" placeholder="Telefone">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" id="novoFat" class="form-control form-control-sm" placeholder="Cód. Faturamento">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" id="novoEnvio" class="form-control form-control-sm" placeholder="Cód. Envio">
+                            </div>
+                            <div class="col-12 mt-2 d-flex gap-2">
+                                <button type="submit" id="btnSalvar" class="btn btn-success btn-sm w-100"><i class="fas fa-save me-1"></i> Adicionar Técnico</button>
+                                <button type="button" id="btnCancelar" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicao()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros e Pesquisa -->
+            <div class="card p-3 p-md-4 mb-4">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label for="searchNome" class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar por Nome, Empresa ou Cidade</label>
+                        <input type="text" id="searchNome" class="form-control" placeholder="Digite para filtrar...">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="filterTipo" class="form-label fw-bold text-light"><i class="fas fa-id-badge me-1"></i> Tipo (PF/PJ)</label>
+                        <select id="filterTipo" class="form-select">
+                            <option value="">Todos (PF e PJ)</option>
+                            <option value="PJ">PJ</option>
+                            <option value="PF">PF</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterEstado" class="form-label fw-bold text-light"><i class="fas fa-filter me-1"></i> Filtrar por Estado (UF)</label>
+                        <select id="filterEstado" class="form-select">
+                            <option value="">Todos os Estados</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button id="btnLimpar" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="card p-2 p-md-3">
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover table-sm align-middle mb-0" id="tabelaTecnicos">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Empresa</th>
+                                <th>Dados Bancários</th>
+                                <th>PF/PJ</th>
+                                <th>Cidade</th>
+                                <th>Estado</th>
+                                <th>Cód. Faturamento</th>
+                                <th>Cód. Envio</th>
+                                <th>Telefone</th>
+                                <th id="thAcoes" class="d-none">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyTecnicos">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+                    <span class="text-muted small" id="contadorResultados">Carregando dados da nuvem...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -199,10 +254,82 @@
 
         let dadosTecnicos = [];
         let isAdmin = false;
-        
-        // Defina as suas senhas aqui:
-        const SENHA_ACESSO = "1307"; // Senha para abrir o sistema
-        const SENHA_ADMIN = "6101";  // Senha para cadastrar, editar e excluir
+        const modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
+
+        // Hashes SHA-256 das senhas (ninguém vê a senha real no código!)
+        // Hash atual de "5678":
+        const HASH_ACESSO = "f8638b979b2f4f793ddb6dbd197e0ee25a7a6ea32b0ae22f5e3c5d119d839e75";
+        // Hash atual de "1234":
+        const HASH_ADMIN = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+
+        // Função que transforma o texto digitado em assinatura criptografada SHA-256
+        async function gerarHash(texto) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(texto);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Login Inicial
+        document.getElementById('formLoginInicial').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const digitada = document.getElementById('inputSenhaInicial').value;
+            const hashDigitada = await gerarHash(digitada);
+
+            if (hashDigitada === HASH_ACESSO) {
+                document.getElementById('telaBloqueio').classList.add('d-none');
+                document.getElementById('conteudoSistema').classList.remove('d-none');
+                iniciarEscutaFirebase();
+            } else {
+                document.getElementById('msgErroLogin').classList.remove('d-none');
+                document.getElementById('inputSenhaInicial').value = '';
+                document.getElementById('inputSenhaInicial').focus();
+            }
+        });
+
+        // Abrir ou Fechar Modo Admin
+        window.alternarModoAdmin = function() {
+            if (!isAdmin) {
+                document.getElementById('inputSenhaAdmin').value = '';
+                document.getElementById('msgErroAdmin').classList.add('d-none');
+                modalAdmin.show();
+                setTimeout(() => document.getElementById('inputSenhaAdmin').focus(), 400);
+            } else {
+                isAdmin = false;
+                document.getElementById('iconeAdmin').className = "fas fa-lock me-1";
+                document.getElementById('textoAdmin').textContent = "Modo Admin (Bloqueado)";
+                document.getElementById('btnAdminToggle').className = "btn btn-warning btn-sm fw-semibold text-dark";
+                document.getElementById('painelAdmin').classList.add('d-none');
+                document.querySelectorAll('.admin-element').forEach(el => el.classList.add('d-none'));
+                document.getElementById('thAcoes').classList.add('d-none');
+                cancelarEdicao();
+                renderTable(dadosTecnicos);
+            }
+        };
+
+        // Verificação da Senha Admin no Modal
+        document.getElementById('formLoginAdmin').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const digitada = document.getElementById('inputSenhaAdmin').value;
+            const hashDigitada = await gerarHash(digitada);
+
+            if (hashDigitada === HASH_ADMIN) {
+                isAdmin = true;
+                modalAdmin.hide();
+                document.getElementById('iconeAdmin').className = "fas fa-lock-open me-1";
+                document.getElementById('textoAdmin').textContent = "Admin Ativo";
+                document.getElementById('btnAdminToggle').className = "btn btn-success btn-sm fw-semibold text-white";
+                document.getElementById('painelAdmin').classList.remove('d-none');
+                document.querySelectorAll('.admin-element').forEach(el => el.classList.remove('d-none'));
+                document.getElementById('thAcoes').classList.remove('d-none');
+                renderTable(dadosTecnicos);
+            } else {
+                document.getElementById('msgErroAdmin').classList.remove('d-none');
+                document.getElementById('inputSenhaAdmin').value = '';
+                document.getElementById('inputSenhaAdmin').focus();
+            }
+        });
 
         const tbody = document.getElementById('tbodyTecnicos');
         const searchNome = document.getElementById('searchNome');
@@ -215,51 +342,6 @@
         const formTitulo = document.getElementById('formTitulo');
         const btnSalvar = document.getElementById('btnSalvar');
         const btnCancelar = document.getElementById('btnCancelar');
-
-        // Função executada ao abrir a página para verificar a senha de acesso
-        window.verificarAcessoInicial = function() {
-            let senha = prompt("Digite a senha de acesso ao Sistema de Técnicos:");
-            while (senha !== SENHA_ACESSO) {
-                if (senha === null) {
-                    alert("Acesso cancelado. O sistema será fechado.");
-                    document.body.innerHTML = "<div style='text-align:center; margin-top:50px; color:#fff; font-family:sans-serif;'><h2>Acesso Negado</h2><p>Você precisa da senha para acessar este sistema.</p></div>";
-                    return;
-                }
-                senha = prompt("Senha incorreta! Digite a senha de acesso novamente:");
-            }
-            // Se acertou a senha, inicia o banco
-            iniciarEscutaFirebase();
-        };
-
-        window.alternarModoAdmin = function() {
-            if (!isAdmin) {
-                const senhaDigitada = prompt("Digite a senha de Administrador:");
-                if (senhaDigitada === SENHA_ADMIN) {
-                    isAdmin = true;
-                    document.getElementById('iconeAdmin').className = "fas fa-lock-open me-1";
-                    document.getElementById('textoAdmin').textContent = "Admin Ativo";
-                    document.getElementById('btnAdminToggle').className = "btn btn-success btn-sm fw-semibold text-white";
-                    document.getElementById('painelAdmin').classList.remove('d-none');
-                    document.querySelectorAll('.admin-element').forEach(el => el.classList.remove('d-none'));
-                    document.getElementById('thAcoes').classList.remove('d-none');
-                    alert("Modo Administrador ativado com sucesso!");
-                    renderTable(dadosTecnicos);
-                } else if (senhaDigitada !== null) {
-                    alert("Senha incorreta!");
-                }
-            } else {
-                isAdmin = false;
-                document.getElementById('iconeAdmin').className = "fas fa-lock me-1";
-                document.getElementById('textoAdmin').textContent = "Modo Admin (Bloqueado)";
-                document.getElementById('btnAdminToggle').className = "btn btn-warning btn-sm fw-semibold text-dark";
-                document.getElementById('painelAdmin').classList.add('d-none');
-                document.querySelectorAll('.admin-element').forEach(el => el.classList.add('d-none'));
-                document.getElementById('thAcoes').classList.add('d-none');
-                cancelarEdicao();
-                alert("Modo Administrador desativado.");
-                renderTable(dadosTecnicos);
-            }
-        };
 
         function iniciarEscutaFirebase() {
             const dbRef = ref(db, 'tecnicos');
@@ -294,7 +376,6 @@
             const s = normalizar(val);
             if (s.includes('PJ') || s.includes('JURIDICA') || s.includes('CNPJ')) return 'PJ';
             if (s.includes('PF') || s.includes('FISICA') || s.includes('CPF')) return 'PF';
-            
             const b = normalizar(banco);
             if (b.includes('/') || b.length > 20) return 'PJ';
             return 'PJ';
@@ -316,7 +397,6 @@
         function renderTable(data) {
             tbody.innerHTML = '';
             btnExportar.classList.toggle('d-none', dadosTecnicos.length === 0);
-
             const colspanTotal = isAdmin ? 10 : 9;
 
             if (data.length === 0) {
@@ -328,7 +408,6 @@
             data.forEach((item) => {
                 const idx = dadosTecnicos.indexOf(item);
                 const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
-                
                 const telFormatado = item.tel && item.tel !== '-' 
                     ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold" title="Clique para ligar"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
                     : '-';
@@ -385,7 +464,6 @@
                     const workbook = XLSX.read(data, {type: 'array'});
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    
                     const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ''});
 
                     if (!rows || rows.length === 0) {
@@ -418,7 +496,6 @@
 
                         const nome = getCol(0);
                         const empresa = getCol(1);
-
                         if (nome === '-' && empresa === '-') continue;
                         if (normalizar(nome) === 'NOME' || normalizar(nome) === 'TECNICO' || normalizar(nome) === 'EMPRESA') continue;
 
@@ -435,144 +512,3 @@
                             empresa: empresa.toUpperCase(),
                             banco: banco,
                             tipo: padronizarTipo(tipoBruto, banco),
-                            cidade: cidade.toUpperCase(),
-                            estado: padronizarUF(estado),
-                            fat: fat,
-                            envio: envio,
-                            tel: tel
-                        });
-                    }
-
-                    if (lista.length === 0) {
-                        alert("Nenhum registro foi encontrado. Certifique-se de que a coluna 1 tiene o Nome e a coluna 2 tiene a Empresa.");
-                        return;
-                    }
-
-                    dadosTecnicos = lista;
-                    salvarDadosNoFirebase();
-                    atualizarDropdownEstados();
-                    filtrarDados();
-                    e.target.value = '';
-                    alert(`Sucesso! ${dadosTecnicos.length} técnicos importados e salvos na nuvem.`);
-                } catch (err) {
-                    console.error(err);
-                    alert("Erro ao ler o arquivo. Certifique-se de carregar um arquivo Excel ou CSV válido.");
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        };
-
-        window.prepararEdicao = function(idx) {
-            if (!isAdmin) return;
-            const item = dadosTecnicos[idx];
-            document.getElementById('editIndex').value = idx;
-            document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
-            document.getElementById('novaEmpresa').value = item.empresa !== '-' ? item.empresa : '';
-            document.getElementById('novoBanco').value = item.banco !== '-' ? item.banco : '';
-            document.getElementById('novoTipo').value = item.tipo === 'PF' ? 'PF' : 'PJ';
-            document.getElementById('novaCidade').value = item.cidade !== '-' ? item.cidade : '';
-            document.getElementById('novoEstado').value = item.estado !== '-' ? item.estado : '';
-            document.getElementById('novoTel').value = item.tel !== '-' ? item.tel : '';
-            document.getElementById('novoFat').value = item.fat !== '-' ? item.fat : '';
-            document.getElementById('novoEnvio').value = item.envio !== '-' ? item.envio : '';
-
-            formTitulo.innerHTML = `<i class="fas fa-user-edit me-2"></i>Editar Técnico (Índice #${idx + 1})`;
-            btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Salvar Alterações`;
-            btnCancelar.classList.remove('d-none');
-            formNovoTecnico.scrollIntoView({ behavior: 'smooth' });
-        };
-
-        window.cancelarEdicao = function() {
-            document.getElementById('editIndex').value = '-1';
-            formNovoTecnico.reset();
-            formTitulo.innerHTML = `<i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente`;
-            btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Adicionar Técnico`;
-            btnCancelar.classList.add('d-none');
-        };
-
-        formNovoTecnico.addEventListener('submit', function(y) {
-            y.preventDefault();
-            if (!isAdmin) return;
-            const editIdx = parseInt(document.getElementById('editIndex').value);
-            const banco = document.getElementById('novoBanco').value.trim();
-
-            const obj = {
-                nome: document.getElementById('novoNome').value.trim().toUpperCase(),
-                empresa: document.getElementById('novaEmpresa').value.trim().toUpperCase(),
-                banco: banco,
-                tipo: padronizarTipo(document.getElementById('novoTipo').value, banco),
-                cidade: document.getElementById('novaCidade').value.trim().toUpperCase(),
-                estado: padronizarUF(document.getElementById('novoEstado').value),
-                fat: document.getElementById('novoFat').value.trim() || '-',
-                envio: document.getElementById('novoEnvio').value.trim() || '-',
-                tel: document.getElementById('novoTel').value.trim() || '-'
-            };
-
-            if (editIdx >= 0) {
-                dadosTecnicos[editIdx] = obj;
-                alert("Técnico atualizado na nuvem!");
-                cancelarEdicao();
-            } else {
-                dadosTecnicos.unshift(obj);
-                formNovoTecnico.reset();
-                alert("Técnico cadastrado na nuvem!");
-            }
-
-            salvarDadosNoFirebase();
-            atualizarDropdownEstados();
-            filtrarDados();
-        });
-
-        window.removerTecnico = function(idx) {
-            if (!isAdmin) return;
-            if (confirm("Deseja realmente remover este técnico?")) {
-                dadosTecnicos.splice(idx, 1);
-                salvarDadosNoFirebase();
-                atualizarDropdownEstados();
-                filtrarDados();
-            }
-        };
-
-        window.limparBancoDados = function() {
-            if (!isAdmin) return;
-            if (confirm("Tem certeza que deseja apagar todos os técnicos salvos na nuvem?")) {
-                dadosTecnicos = [];
-                salvarDadosNoFirebase();
-                atualizarDropdownEstados();
-                filtrarDados();
-                alert("Banco de dados na nuvem limpo com sucesso.");
-            }
-        };
-
-        window.exportarPlanilha = function() {
-            if (dadosTecnicos.length === 0) return;
-            const dataExp = dadosTecnicos.map(i => ({
-                'Nome': i.nome,
-                'Empresa': i.empresa,
-                'Dados Bancários': i.banco,
-                'PF ou PJ': i.tipo,
-                'Cidade': i.cidade,
-                'Estado': i.estado,
-                'Código de Faturamento': i.fat,
-                'Código de Envio': i.envio,
-                'Telefone': i.tel
-            }));
-            const ws = XLSX.utils.json_to_sheet(dataExp);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Técnicos");
-            XLSX.writeFile(wb, "Tecnicos_Atualizado.xlsx");
-        };
-
-        searchNome.addEventListener('input', filtrarDados);
-        filterTipo.addEventListener('change', filtrarDados);
-        filterEstado.addEventListener('change', filtrarDados);
-
-        btnLimpar.addEventListener('click', () => {
-            searchNome.value = '';
-            filterTipo.value = '';
-            filterEstado.value = '';
-            renderTable(dadosTecnicos);
-        });
-    </script>
-</body>
-</html>

@@ -240,9 +240,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Defina suas senhas aqui:
-        const SENHA_ACESSO = "1307"; // Senha para entrar no sistema
-        const SENHA_ADMIN = "6101";  // Senha para o Modo Admin
+        // Senhas configuradas conforme solicitado:
+        const SENHA_ACESSO = "1307"; 
+        const SENHA_ADMIN = "6101";  
 
         let db = null;
         let dadosTecnicos = [];
@@ -252,17 +252,14 @@
         // Login Inicial
         document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
             e.preventDefault();
-            const digitada = document.getElementById('inputSenhaInicial').value;
+            const digitada = document.getElementById('inputSenhaInicial').value.trim();
 
             if (digitada === SENHA_ACESSO) {
-                // Esconde a tela de bloqueio e mostra o sistema
                 document.getElementById('telaBloqueio').classList.add('d-none');
                 document.getElementById('conteudoSistema').classList.remove('d-none');
 
-                // Inicializa o Bootstrap Modal do Admin agora
                 modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
 
-                // Agora sim, inicializa o Firebase e carrega os dados
                 const firebaseConfig = {
                     apiKey: "AIzaSyC2LafGVK50k7uMmNPz7Hw9X9Ozhtoozk",
                     authDomain: "sistematecnicos-e1e6e.firebaseapp.com",
@@ -282,7 +279,6 @@
             }
         });
 
-        // Abrir ou Fechar Modo Admin
         window.alternarModoAdmin = function() {
             if (!isAdmin) {
                 document.getElementById('inputSenhaAdmin').value = '';
@@ -302,10 +298,9 @@
             }
         };
 
-        // Verificação da Senha Admin no Modal
         document.getElementById('formLoginAdmin').addEventListener('submit', function(e) {
             e.preventDefault();
-            const digitada = document.getElementById('inputSenhaAdmin').value;
+            const digitada = document.getElementById('inputSenhaAdmin').value.trim();
 
             if (digitada === SENHA_ADMIN) {
                 isAdmin = true;

@@ -49,7 +49,11 @@
         <div class="container-fluid px-2 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 py-2">
             <span class="navbar-brand mb-0 h1 text-center text-md-start"><i class="fas fa-users-cog me-2"></i>Sistema de Gestão e Consulta de Técnicos</span>
             <div class="d-flex flex-wrap justify-content-center gap-2">
-                <button id="btnLimparBanco" class="btn btn-outline-danger btn-sm fw-semibold" onclick="limparBancoDados()" title="Apaga todos os dados salvos">
+                <!-- Botão de Admin -->
+                <button id="btnAdminToggle" class="btn btn-warning btn-sm fw-semibold text-dark" onclick="alternarModoAdmin()">
+                    <i class="fas fa-lock me-1" id="iconeAdmin"></i> <span id="textoAdmin">Modo Admin (Bloqueado)</span>
+                </button>
+                <button id="btnLimparBanco" class="btn btn-outline-danger btn-sm fw-semibold d-none admin-element" onclick="limparBancoDados()" title="Apaga todos os dados salvos">
                     <i class="fas fa-trash-alt me-1"></i> Limpar Dados
                 </button>
                 <button id="btnExportar" class="btn btn-light btn-sm fw-semibold text-primary d-none" onclick="exportarPlanilha()">
@@ -60,8 +64,8 @@
     </nav>
 
     <div class="container-fluid px-2 px-md-4">
-        <div class="row g-3 mb-4">
-            <!-- Botão compacto de Importar Planilha -->
+        <!-- Painel Admin: Importar e Cadastrar (Oculto por padrão) -->
+        <div id="painelAdmin" class="row g-3 mb-4 d-none">
             <div class="col-lg-4">
                 <div class="card p-3 h-100 d-flex flex-column justify-content-between">
                     <div>
@@ -69,7 +73,7 @@
                         <p class="text-muted small mb-3">Envie uma nova planilha Excel ou CSV para atualizar os dados na nuvem.</p>
                     </div>
                     <div>
-                        <button class="btn btn-outline-primary w-150 py-2 fw-semibold" onclick="document.getElementById('inputPlanilha').click();">
+                        <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilha').click();">
                             <i class="fas fa-cloud-upload-alt me-2"></i> Selecionar Planilha (.xlsx)
                         </button>
                         <input type="file" id="inputPlanilha" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilha(event)">
@@ -77,7 +81,6 @@
                 </div>
             </div>
 
-            <!-- Inserir Novo Técnico Manualmente -->
             <div class="col-lg-8">
                 <div class="card p-3 h-100">
                     <h5 class="card-title text-success mb-3" id="formTitulo"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente</h5>
@@ -122,7 +125,7 @@
             </div>
         </div>
 
-        <!-- Filtros e Pesquisa -->
+        <!-- Filtros e Pesquisa (Sempre visível para consulta) -->
         <div class="card p-3 p-md-4 mb-4">
             <div class="row g-3">
                 <div class="col-md-5">
@@ -164,7 +167,7 @@
                             <th>Cód. Faturamento</th>
                             <th>Cód. Envio</th>
                             <th>Telefone</th>
-                            <th>Ações</th>
+                            <th id="thAcoes" class="d-none">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyTecnicos">
@@ -195,6 +198,8 @@
         const db = getDatabase(app);
 
         let dadosTecnicos = [];
+        let isAdmin = false;
+        const SENHA_ADMIN = "6101"; // Você pode alterar esta senha se desejar
 
         const tbody = document.getElementById('tbodyTecnicos');
         const searchNome = document.getElementById('searchNome');
@@ -207,6 +212,36 @@
         const formTitulo = document.getElementById('formTitulo');
         const btnSalvar = document.getElementById('btnSalvar');
         const btnCancelar = document.getElementById('btnCancelar');
+
+        window.alternarModoAdmin = function() {
+            if (!isAdmin) {
+                const senhaDigitada = prompt("Digite a senha de Administrador:");
+                if (senhaDigitada === SENHA_ADMIN) {
+                    isAdmin = true;
+                    document.getElementById('iconeAdmin').className = "fas fa-lock-open me-1";
+                    document.getElementById('textoAdmin').textContent = "Admin Ativo";
+                    document.getElementById('btnAdminToggle').className = "btn btn-success btn-sm fw-semibold text-white";
+                    document.getElementById('painelAdmin').classList.remove('d-none');
+                    document.querySelectorAll('.admin-element').forEach(el => el.classList.remove('d-none'));
+                    document.getElementById('thAcoes').classList.remove('d-none');
+                    alert("Modo Administrador ativado com sucesso!");
+                    renderTable(dadosTecnicos);
+                } else if (senhaDigitada !== null) {
+                    alert("Senha incorreta!");
+                }
+            } else {
+                isAdmin = false;
+                document.getElementById('iconeAdmin').className = "fas fa-lock me-1";
+                document.getElementById('textoAdmin').textContent = "Modo Admin (Bloqueado)";
+                document.getElementById('btnAdminToggle').className = "btn btn-warning btn-sm fw-semibold text-dark";
+                document.getElementById('painelAdmin').classList.add('d-none');
+                document.querySelectorAll('.admin-element').forEach(el => el.classList.add('d-none'));
+                document.getElementById('thAcoes').classList.add('d-none');
+                cancelarEdicao();
+                alert("Modo Administrador desativado.");
+                renderTable(dadosTecnicos);
+            }
+        };
 
         function iniciarEscutaFirebase() {
             const dbRef = ref(db, 'tecnicos');
@@ -264,8 +299,10 @@
             tbody.innerHTML = '';
             btnExportar.classList.toggle('d-none', dadosTecnicos.length === 0);
 
+            const colspanTotal = isAdmin ? 10 : 9;
+
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${colspanTotal}" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>`;
                 contadorResultados.textContent = dadosTecnicos.length === 0 ? 'Nenhum registro cadastrado' : `0 de ${dadosTecnicos.length} registros`;
                 return;
             }
@@ -278,6 +315,13 @@
                     ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold" title="Clique para ligar"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
                     : '-';
 
+                const tdAcoes = isAdmin 
+                    ? `<td class="text-nowrap">
+                         <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicao(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-outline-danger btn-sm" onclick="removerTecnico(${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                       </td>`
+                    : '';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="fw-bold" style="color: #ffffff !important;">${item.nome}</td>
@@ -289,10 +333,7 @@
                     <td class="fw-semibold text-success">${item.fat}</td>
                     <td style="color: #adb5bd !important;">${item.envio}</td>
                     <td>${telFormatado}</td>
-                    <td class="text-nowrap">
-                        <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicao(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="removerTecnico(${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
-                    </td>
+                    ${tdAcoes}
                 `;
                 tbody.appendChild(tr);
             });
@@ -315,6 +356,7 @@
         }
 
         window.processarPlanilha = function(e) {
+            if (!isAdmin) return;
             const file = e.target.files[0];
             if (!file) return;
 
@@ -403,6 +445,7 @@
         };
 
         window.prepararEdicao = function(idx) {
+            if (!isAdmin) return;
             const item = dadosTecnicos[idx];
             document.getElementById('editIndex').value = idx;
             document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
@@ -431,6 +474,7 @@
 
         formNovoTecnico.addEventListener('submit', function(e) {
             e.preventDefault();
+            if (!isAdmin) return;
             const editIdx = parseInt(document.getElementById('editIndex').value);
             const banco = document.getElementById('novoBanco').value.trim();
 
@@ -462,6 +506,7 @@
         });
 
         window.removerTecnico = function(idx) {
+            if (!isAdmin) return;
             if (confirm("Deseja realmente remover este técnico?")) {
                 dadosTecnicos.splice(idx, 1);
                 salvarDadosNoFirebase();
@@ -471,6 +516,7 @@
         };
 
         window.limparBancoDados = function() {
+            if (!isAdmin) return;
             if (confirm("Tem certeza que deseja apagar todos os técnicos salvos na nuvem?")) {
                 dadosTecnicos = [];
                 salvarDadosNoFirebase();

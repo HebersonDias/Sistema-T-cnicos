@@ -256,7 +256,7 @@
         let isAdmin = false;
         const modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
 
-        // Defina suas senhas aqui de forma simples:
+        // Defina suas senhas aqui:
         const SENHA_ACESSO = "1307"; // Senha para entrar no sistema
         const SENHA_ADMIN = "6101";  // Senha para o Modo Admin
 
@@ -387,8 +387,8 @@
             const colspanTotal = isAdmin ? 10 : 9;
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${colspanTotal}" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>`;
-                contadorResultados.textContent = dadosTecnicos.length === 0 ? 'Nenhum registro cadastrado' : `0 de ${dadosTecnicos.length} registros`;
+                tbody.innerHTML = `<tr><td colspan="\${colspanTotal}" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>`;
+                contadorResultados.textContent = dadosTecnicos.length === 0 ? 'Nenhum registro cadastrado' : `0 de \${dadosTecnicos.length} registros`;
                 return;
             }
 
@@ -396,32 +396,31 @@
                 const idx = dadosTecnicos.indexOf(item);
                 const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
                 const telFormatado = item.tel && item.tel !== '-' 
-                    ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold" title="Clique para ligar"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
+                    ? `<a href="tel:\${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold" title="Clique para ligar"><i class="fas fa-phone-alt me-1 small"></i>\${item.tel}</a>` 
                     : '-';
 
                 const tdAcoes = isAdmin 
                     ? `<td class="text-nowrap">
-                         <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicao(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
-                         <button class="btn btn-outline-danger btn-sm" onclick="removerTecnico(${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                         <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicao(\${idx})" title="Editar"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-outline-danger btn-sm" onclick="removerTecnico(\${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
                        </td>`
                     : '';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="fw-bold" style="color: #ffffff !important;">${item.nome}</td>
-                    <td style="color: #ffffff !important;">${item.empresa}</td>
-                    <td class="text-muted small" style="color: #adb5bd !important;">${item.banco}</td>
+                    <td class="fw-bold" style="color: #ffffff !important;">\${item.nome}</td>
+                    <td style="color: #ffffff !important;">\${item.empresa}</td>
+                    <td class="text-muted small" style="color: #adb5bd !important;">\${item.banco}</td>
                     <td><span class="badge ${badgeClass}">${item.tipo}</span></td>
-                    <td style="color: #ffffff !important;">${item.cidade}</td>
-                    <td><span class="badge bg-secondary badge-estado">${item.estado}</span></td>
-                    <td class="fw-semibold text-success">${item.fat}</td>
-                    <td style="color: #adb5bd !important;">${item.envio}</td>
-                    <td>${telFormatado}</td>
-                    ${tdAcoes}
+                    <td style="color: #ffffff !important;">\${item.cidade}</td>
+                    <td><span class="badge bg-secondary badge-estado">\${item.estado}</span></td>
+                    <td class="fw-semibold text-success">\${item.fat}</td>
+                    <td style="color: #adb5bd !important;">\${item.envio}</td>
+                    <td>${telFormatado}</td>${tdAcoes}
                 `;
                 tbody.appendChild(tr);
             });
-            contadorResultados.textContent = `Mostrando ${data.length} de ${dadosTecnicos.length} registros`;
+            contadorResultados.textContent = `Mostrando ${data.length} de${dadosTecnicos.length} registros`;
         }
 
         function filtrarDados() {
@@ -517,126 +516,4 @@
                     atualizarDropdownEstados();
                     filtrarDados();
                     e.target.value = '';
-                    alert(`Sucesso! ${dadosTecnicos.length} técnicos importados e salvos na nuvem.`);
-                } catch (err) {
-                    console.error(err);
-                    alert("Erro ao ler o arquivo. Certifique-se de carregar um arquivo Excel ou CSV válido.");
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        };
-
-        window.prepararEdicao = function(idx) {
-            if (!isAdmin) return;
-            const item = dadosTecnicos[idx];
-            document.getElementById('editIndex').value = idx;
-            document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
-            document.getElementById('novaEmpresa').value = item.empresa !== '-' ? item.empresa : '';
-            document.getElementById('novoBanco').value = item.banco !== '-' ? item.banco : '';
-            document.getElementById('novoTipo').value = item.tipo === 'PF' ? 'PF' : 'PJ';
-            document.getElementById('novaCidade').value = item.cidade !== '-' ? item.cidade : '';
-            document.getElementById('novoEstado').value = item.estado !== '-' ? item.estado : '';
-            document.getElementById('novoTel').value = item.tel !== '-' ? item.tel : '';
-            document.getElementById('novoFat').value = item.fat !== '-' ? item.fat : '';
-            document.getElementById('novoEnvio').value = item.envio !== '-' ? item.envio : '';
-
-            formTitulo.innerHTML = `<i class="fas fa-user-edit me-2"></i>Editar Técnico (Índice #${idx + 1})`;
-            btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Salvar Alterações`;
-            btnCancelar.classList.remove('d-none');
-            formNovoTecnico.scrollIntoView({ behavior: 'smooth' });
-        };
-
-        window.cancelarEdicao = function() {
-            document.getElementById('editIndex').value = '-1';
-            formNovoTecnico.reset();
-            formTitulo.innerHTML = `<i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente`;
-            btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Adicionar Técnico`;
-            btnCancelar.classList.add('d-none');
-        };
-
-        formNovoTecnico.addEventListener('submit', function(e) {
-            e.preventDefault();
-            if (!isAdmin) return;
-            const editIdx = parseInt(document.getElementById('editIndex').value);
-            const banco = document.getElementById('novoBanco').value.trim();
-
-            const obj = {
-                nome: document.getElementById('novoNome').value.trim().toUpperCase(),
-                empresa: document.getElementById('novaEmpresa').value.trim().toUpperCase(),
-                banco: banco,
-                tipo: padronizarTipo(document.getElementById('novoTipo').value, banco),
-                cidade: document.getElementById('novaCidade').value.trim().toUpperCase(),
-                estado: padronizarUF(document.getElementById('novoEstado').value),
-                fat: document.getElementById('novoFat').value.trim() || '-',
-                envio: document.getElementById('novoEnvio').value.trim() || '-',
-                tel: document.getElementById('novoTel').value.trim() || '-'
-            };
-
-            if (editIdx >= 0) {
-                dadosTecnicos[editIdx] = obj;
-                alert("Técnico atualizado na nuvem!");
-                cancelarEdicao();
-            } else {
-                dadosTecnicos.unshift(obj);
-                formNovoTecnico.reset();
-                alert("Técnico cadastrado na nuvem!");
-            }
-
-            salvarDadosNoFirebase();
-            atualizarDropdownEstados();
-            filtrarDados();
-        });
-
-        window.removerTecnico = function(idx) {
-            if (!isAdmin) return;
-            if (confirm("Deseja realmente remover este técnico?")) {
-                dadosTecnicos.splice(idx, 1);
-                salvarDadosNoFirebase();
-                atualizarDropdownEstados();
-                filtrarDados();
-            }
-        };
-
-        window.limparBancoDados = function() {
-            if (!isAdmin) return;
-            if (confirm("Tem certeza que deseja apagar todos os técnicos salvos na nuvem?")) {
-                dadosTecnicos = [];
-                salvarDadosNoFirebase();
-                atualizarDropdownEstados();
-                filtrarDados();
-                alert("Banco de dados na nuvem limpo com sucesso.");
-            }
-        };
-
-        window.exportarPlanilha = function() {
-            if (dadosTecnicos.length === 0) return;
-            const dataExp = dadosTecnicos.map(i => ({
-                'Nome': i.nome,
-                'Empresa': i.empresa,
-                'Dados Bancários': i.banco,
-                'PF ou PJ': i.tipo,
-                'Cidade': i.cidade,
-                'Estado': i.estado,
-                'Código de Faturamento': i.fat,
-                'Código de Envio': i.envio,
-                'Telefone': i.tel
-            }));
-            const ws = XLSX.utils.json_to_sheet(dataExp);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Técnicos");
-            XLSX.writeFile(wb, "Tecnicos_Atualizado.xlsx");
-        };
-
-        searchNome.addEventListener('input', filtrarDados);
-        filterTipo.addEventListener('change', filtrarDados);
-        filterEstado.addEventListener('change', filtrarDados);
-
-        btnLimpar.addEventListener('click', () => {
-            searchNome.value = '';
-            filterTipo.value = '';
-            filterEstado.value = '';
-            renderTable(dadosTecnicos);
-        });
-    </script>
-</body>
-</html>
+                    alert(`Sucesso

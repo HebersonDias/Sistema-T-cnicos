@@ -57,7 +57,7 @@
 </head>
 <body>
 
-    <!-- Tela de Login Inicial (Com campo de senha mascarado ***) -->
+    <!-- Tela de Login Inicial -->
     <div id="telaBloqueio">
         <div class="card p-4 shadow-lg" style="max-width: 380px; width: 100%;">
             <div class="text-center mb-3">
@@ -77,7 +77,7 @@
         </div>
     </div>
 
-    <!-- Modal para Senha de Administrador (Com campo mascarado ***) -->
+    <!-- Modal para Senha de Administrador -->
     <div class="modal fade" id="modalAdmin" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content bg-dark text-light border-secondary">
@@ -256,28 +256,16 @@
         let isAdmin = false;
         const modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
 
-        // Hashes SHA-256 das senhas (ninguém vê a senha real no código!)
-        // Hash atual de "5678":
-        const HASH_ACESSO = "f8638b979b2f4f793ddb6dbd197e0ee25a7a6ea32b0ae22f5e3c5d119d839e75";
-        // Hash atual de "1234":
-        const HASH_ADMIN = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
-
-        // Função que transforma o texto digitado em assinatura criptografada SHA-256
-        async function gerarHash(texto) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(texto);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
+        // Defina suas senhas aqui de forma simples:
+        const SENHA_ACESSO = "5678"; // Senha para entrar no sistema
+        const SENHA_ADMIN = "1234";  // Senha para o Modo Admin
 
         // Login Inicial
-        document.getElementById('formLoginInicial').addEventListener('submit', async function(e) {
+        document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
             e.preventDefault();
             const digitada = document.getElementById('inputSenhaInicial').value;
-            const hashDigitada = await gerarHash(digitada);
 
-            if (hashDigitada === HASH_ACESSO) {
+            if (digitada === SENHA_ACESSO) {
                 document.getElementById('telaBloqueio').classList.add('d-none');
                 document.getElementById('conteudoSistema').classList.remove('d-none');
                 iniciarEscutaFirebase();
@@ -309,12 +297,11 @@
         };
 
         // Verificação da Senha Admin no Modal
-        document.getElementById('formLoginAdmin').addEventListener('submit', async function(e) {
+        document.getElementById('formLoginAdmin').addEventListener('submit', function(e) {
             e.preventDefault();
             const digitada = document.getElementById('inputSenhaAdmin').value;
-            const hashDigitada = await gerarHash(digitada);
 
-            if (hashDigitada === HASH_ADMIN) {
+            if (digitada === SENHA_ADMIN) {
                 isAdmin = true;
                 modalAdmin.hide();
                 document.getElementById('iconeAdmin').className = "fas fa-lock-open me-1";
@@ -512,3 +499,144 @@
                             empresa: empresa.toUpperCase(),
                             banco: banco,
                             tipo: padronizarTipo(tipoBruto, banco),
+                            cidade: cidade.toUpperCase(),
+                            estado: padronizarUF(estado),
+                            fat: fat,
+                            envio: envio,
+                            tel: tel
+                        });
+                    }
+
+                    if (lista.length === 0) {
+                        alert("Nenhum registro foi encontrado. Certifique-se de que a coluna 1 tem o Nome e a coluna 2 tem a Empresa.");
+                        return;
+                    }
+
+                    dadosTecnicos = lista;
+                    salvarDadosNoFirebase();
+                    atualizarDropdownEstados();
+                    filtrarDados();
+                    e.target.value = '';
+                    alert(`Sucesso! ${dadosTecnicos.length} técnicos importados e salvos na nuvem.`);
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao ler o arquivo. Certifique-se de carregar um arquivo Excel ou CSV válido.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        window.prepararEdicao = function(idx) {
+            if (!isAdmin) return;
+            const item = dadosTecnicos[idx];
+            document.getElementById('editIndex').value = idx;
+            document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
+            document.getElementById('novaEmpresa').value = item.empresa !== '-' ? item.empresa : '';
+            document.getElementById('novoBanco').value = item.banco !== '-' ? item.banco : '';
+            document.getElementById('novoTipo').value = item.tipo === 'PF' ? 'PF' : 'PJ';
+            document.getElementById('novaCidade').value = item.cidade !== '-' ? item.cidade : '';
+            document.getElementById('novoEstado').value = item.estado !== '-' ? item.estado : '';
+            document.getElementById('novoTel').value = item.tel !== '-' ? item.tel : '';
+            document.getElementById('novoFat').value = item.fat !== '-' ? item.fat : '';
+            document.getElementById('novoEnvio').value = item.envio !== '-' ? item.envio : '';
+
+            formTitulo.innerHTML = `<i class="fas fa-user-edit me-2"></i>Editar Técnico (Índice #${idx + 1})`;
+            btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Salvar Alterações`;
+            btnCancelar.classList.remove('d-none');
+            formNovoTecnico.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.cancelarEdicao = function() {
+            document.getElementById('editIndex').value = '-1';
+            formNovoTecnico.reset();
+            formTitulo.innerHTML = `<i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente`;
+            btnSalvar.innerHTML = `<i class="fas fa-save me-1"></i> Adicionar Técnico`;
+            btnCancelar.classList.add('d-none');
+        };
+
+        formNovoTecnico.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!isAdmin) return;
+            const editIdx = parseInt(document.getElementById('editIndex').value);
+            const banco = document.getElementById('novoBanco').value.trim();
+
+            const obj = {
+                nome: document.getElementById('novoNome').value.trim().toUpperCase(),
+                empresa: document.getElementById('novaEmpresa').value.trim().toUpperCase(),
+                banco: banco,
+                tipo: padronizarTipo(document.getElementById('novoTipo').value, banco),
+                cidade: document.getElementById('novaCidade').value.trim().toUpperCase(),
+                estado: padronizarUF(document.getElementById('novoEstado').value),
+                fat: document.getElementById('novoFat').value.trim() || '-',
+                envio: document.getElementById('novoEnvio').value.trim() || '-',
+                tel: document.getElementById('novoTel').value.trim() || '-'
+            };
+
+            if (editIdx >= 0) {
+                dadosTecnicos[editIdx] = obj;
+                alert("Técnico atualizado na nuvem!");
+                cancelarEdicao();
+            } else {
+                dadosTecnicos.unshift(obj);
+                formNovoTecnico.reset();
+                alert("Técnico cadastrado na nuvem!");
+            }
+
+            salvarDadosNoFirebase();
+            atualizarDropdownEstados();
+            filtrarDados();
+        });
+
+        window.removerTecnico = function(idx) {
+            if (!isAdmin) return;
+            if (confirm("Deseja realmente remover este técnico?")) {
+                dadosTecnicos.splice(idx, 1);
+                salvarDadosNoFirebase();
+                atualizarDropdownEstados();
+                filtrarDados();
+            }
+        };
+
+        window.limparBancoDados = function() {
+            if (!isAdmin) return;
+            if (confirm("Tem certeza que deseja apagar todos os técnicos salvos na nuvem?")) {
+                dadosTecnicos = [];
+                salvarDadosNoFirebase();
+                atualizarDropdownEstados();
+                filtrarDados();
+                alert("Banco de dados na nuvem limpo com sucesso.");
+            }
+        };
+
+        window.exportarPlanilha = function() {
+            if (dadosTecnicos.length === 0) return;
+            const dataExp = dadosTecnicos.map(i => ({
+                'Nome': i.nome,
+                'Empresa': i.empresa,
+                'Dados Bancários': i.banco,
+                'PF ou PJ': i.tipo,
+                'Cidade': i.cidade,
+                'Estado': i.estado,
+                'Código de Faturamento': i.fat,
+                'Código de Envio': i.envio,
+                'Telefone': i.tel
+            }));
+            const ws = XLSX.utils.json_to_sheet(dataExp);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Técnicos");
+            XLSX.writeFile(wb, "Tecnicos_Atualizado.xlsx");
+        };
+
+        searchNome.addEventListener('input', filtrarDados);
+        filterTipo.addEventListener('change', filtrarDados);
+        filterEstado.addEventListener('change', filtrarDados);
+
+        btnLimpar.addEventListener('click', () => {
+            searchNome.value = '';
+            filterTipo.value = '';
+            filterEstado.value = '';
+            renderTable(dadosTecnicos);
+        });
+    </script>
+</body>
+</html>

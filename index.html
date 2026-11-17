@@ -32,8 +32,6 @@
             color: #6c757d !important;
         }
 
-        .upload-zone { border: 2px dashed #6c757d; border-radius: 8px; padding: 20px; text-align: center; background: #2b2b2b; cursor: pointer; transition: all 0.3s; }
-        .upload-zone:hover { border-color: #0d6efd; background: #333333; }
         .table-dark { background-color: #1a1a1a !important; color: #ffffff !important; }
 
         @media (max-width: 768px) {
@@ -63,19 +61,24 @@
 
     <div class="container-fluid px-2 px-md-4">
         <div class="row g-3 mb-4">
-            <div class="col-lg-5">
-                <div class="card p-3 h-100">
-                    <h5 class="card-title text-primary mb-3"><i class="fas fa-file-excel me-2"></i>Alimentar Sistema via Planilha</h5>
-                    <div class="upload-zone d-flex flex-column justify-content-center h-100" onclick="document.getElementById('inputPlanilha').click();">
-                        <i class="fas fa-cloud-upload-alt fa-2x text-secondary mb-2"></i>
-                        <p class="mb-1 fw-semibold text-light text-center">Clique aqui ou arraste sua planilha (.xlsx, .xls, .csv)</p>
-                        <small class="text-muted text-center">Os dados importados vão para a nuvem!</small>
+            <!-- Botão compacto de Importar Planilha -->
+            <div class="col-lg-4">
+                <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Atualizar via Planilha</h5>
+                        <p class="text-muted small mb-3">Envie uma nova planilha Excel ou CSV para atualizar os dados na nuvem.</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary w-150 py-2 fw-semibold" onclick="document.getElementById('inputPlanilha').click();">
+                            <i class="fas fa-cloud-upload-alt me-2"></i> Selecionar Planilha (.xlsx)
+                        </button>
                         <input type="file" id="inputPlanilha" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilha(event)">
                     </div>
                 </div>
             </div>
 
-            <div class="col-lg-7">
+            <!-- Inserir Novo Técnico Manualmente -->
+            <div class="col-lg-8">
                 <div class="card p-3 h-100">
                     <h5 class="card-title text-success mb-3" id="formTitulo"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico Manualmente</h5>
                     <form id="formNovoTecnico" class="row g-2">
@@ -119,6 +122,7 @@
             </div>
         </div>
 
+        <!-- Filtros e Pesquisa -->
         <div class="card p-3 p-md-4 mb-4">
             <div class="row g-3">
                 <div class="col-md-5">
@@ -145,6 +149,7 @@
             </div>
         </div>
 
+        <!-- Tabela -->
         <div class="card p-2 p-md-3">
             <div class="table-responsive">
                 <table class="table table-dark table-striped table-hover table-sm align-middle mb-0" id="tabelaTecnicos">
@@ -172,6 +177,7 @@
         </div>
     </div>
 
+    <!-- Firebase SDKs e Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -268,7 +274,6 @@
                 const idx = dadosTecnicos.indexOf(item);
                 const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
                 
-                // Formatação do telefone como link clicável para ligação
                 const telFormatado = item.tel && item.tel !== '-' 
                     ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold" title="Clique para ligar"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
                     : '-';

@@ -43,7 +43,7 @@
         }
     </style>
 </head>
-<body>
+<body onload="verificarAcessoInicial()">
 
     <nav class="navbar navbar-dark shadow-sm mb-4">
         <div class="container-fluid px-2 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 py-2">
@@ -125,7 +125,7 @@
             </div>
         </div>
 
-        <!-- Filtros e Pesquisa (Sempre visível para consulta) -->
+        <!-- Filtros e Pesquisa -->
         <div class="card p-3 p-md-4 mb-4">
             <div class="row g-3">
                 <div class="col-md-5">
@@ -199,7 +199,10 @@
 
         let dadosTecnicos = [];
         let isAdmin = false;
-        const SENHA_ADMIN = "6101"; // Você pode alterar esta senha se desejar
+        
+        // Defina as suas senhas aqui:
+        const SENHA_ACESSO = "1307"; // Senha para abrir o sistema
+        const SENHA_ADMIN = "6101";  // Senha para cadastrar, editar e excluir
 
         const tbody = document.getElementById('tbodyTecnicos');
         const searchNome = document.getElementById('searchNome');
@@ -212,6 +215,21 @@
         const formTitulo = document.getElementById('formTitulo');
         const btnSalvar = document.getElementById('btnSalvar');
         const btnCancelar = document.getElementById('btnCancelar');
+
+        // Função executada ao abrir a página para verificar a senha de acesso
+        window.verificarAcessoInicial = function() {
+            let senha = prompt("Digite a senha de acesso ao Sistema de Técnicos:");
+            while (senha !== SENHA_ACESSO) {
+                if (senha === null) {
+                    alert("Acesso cancelado. O sistema será fechado.");
+                    document.body.innerHTML = "<div style='text-align:center; margin-top:50px; color:#fff; font-family:sans-serif;'><h2>Acesso Negado</h2><p>Você precisa da senha para acessar este sistema.</p></div>";
+                    return;
+                }
+                senha = prompt("Senha incorreta! Digite a senha de acesso novamente:");
+            }
+            // Se acertou a senha, inicia o banco
+            iniciarEscutaFirebase();
+        };
 
         window.alternarModoAdmin = function() {
             if (!isAdmin) {
@@ -426,7 +444,7 @@
                     }
 
                     if (lista.length === 0) {
-                        alert("Nenhum registro foi encontrado. Certifique-se de que a coluna 1 tem o Nome e a coluna 2 tem a Empresa.");
+                        alert("Nenhum registro foi encontrado. Certifique-se de que a coluna 1 tiene o Nome e a coluna 2 tiene a Empresa.");
                         return;
                     }
 
@@ -472,8 +490,8 @@
             btnCancelar.classList.add('d-none');
         };
 
-        formNovoTecnico.addEventListener('submit', function(e) {
-            e.preventDefault();
+        formNovoTecnico.addEventListener('submit', function(y) {
+            y.preventDefault();
             if (!isAdmin) return;
             const editIdx = parseInt(document.getElementById('editIndex').value);
             const banco = document.getElementById('novoBanco').value.trim();
@@ -555,8 +573,6 @@
             filterEstado.value = '';
             renderTable(dadosTecnicos);
         });
-
-        iniciarEscutaFirebase();
     </script>
 </body>
 </html>

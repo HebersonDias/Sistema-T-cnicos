@@ -1,310 +1,264 @@
 ```python
-with open("index_10.html", "r", encoding="utf-8") as f:
+with open("cf0a0f3e.html", "r", encoding="utf-8") as f:
     code = f.read()
 
-# O usuário pediu:
-# "Tanto na guia "Envios" quanto na "Retorno" quero que ao invés de pendente gere "SIM" (VERDE) "NÃO" (VERMELHO) E "OK" (CINZA)"
-# 
-# Vamos alterar os selects de status (envChegou e retChegou) e a forma como são renderizados nas tabelas.
-# Opções do select:
-# - SIM (verde)
-# - NÃO (vermelho)
-# - OK (cinza)
-# 
-# Vamos verificar o HTML dos selects e o JS de renderização de badges de status.
-
-
-```
-
-```python
-# Vamos substituir os selects de status nos formulários:
-# De:
-# <select id="envChegou"...>
-#   <option value="PENDENTE">PENDENTE</option>
-#   <option value="OK">OK</option>
-# </select>
-# Para:
-# <select id="envChegou" class="form-select form-select-sm" title="Status">
-#     <option value="SIM">SIM</option>
-#     <option value="NAO">NÃO</option>
-#     <option value="OK">OK</option>
-# </select>
-
-# E o mesmo para retChegou.
-
-old_select_env = """                                <div class="col-12 col-md-3">
-                                    <select id="envChegou" class="form-select form-select-sm" title="Status de recebimento">
-                                        <option value="PENDENTE">PENDENTE</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (OK / Pendente)</div>
-                                </div>"""
-
-new_select_env = """                                <div class="col-12 col-md-3">
-                                    <select id="envChegou" class="form-select form-select-sm" title="Status">
-                                        <option value="SIM">SIM</option>
-                                        <option value="NAO">NÃO</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
-                                </div>"""
-
-old_select_ret = """                                <div class="col-12 col-md-3">
-                                    <select id="retChegou" class="form-select form-select-sm">
-                                        <option value="PENDENTE">PENDENTE</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (OK / Pendente)</div>
-                                </div>"""
-
-new_select_ret = """                                <div class="col-12 col-md-3">
-                                    <select id="retChegou" class="form-select form-select-sm">
-                                        <option value="SIM">SIM</option>
-                                        <option value="NAO">NÃO</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
-                                </div>"""
-
-assert old_select_env in code, "Select env não encontrado"
-assert old_select_ret in code, "Select ret não encontrado"
-
-code = code.replace(old_select_env, new_select_env)
-code = code.replace(old_select_ret, new_select_ret)
-
-# Vamos também atualizar os filtros de status:
-# De:
-# <option value="OK">OK</option>
-# <option value="PENDENTE">PENDENTE</option>
-# Para:
-# <option value="SIM">SIM</option>
-# <option value="NAO">NÃO</option>
-# <option value="OK">OK</option>
-
-old_filter = """                            <select id="filterEnvStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="OK">OK</option>
-                                <option value="PENDENTE">PENDENTE</option>
-                            </select>"""
-
-new_filter = """                            <select id="filterEnvStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="OK">OK</option>
-                            </select>"""
-
-code = code.replace(old_filter, new_filter)
-code = code.replace('id="filterRetStatus"', 'id="filterRetStatus"') # Se houver o mesmo filtro para retornos, vamos substituir ambos.
-# Como há dois filtros idênticos (filterEnvStatus e filterRetStatus), vamos substituir as ocorrências de `filterEnvStatus` e `filterRetStatus` no HTML.
-
-code = code.replace('<option value="PENDENTE">PENDENTE</option>', '<option value="SIM">SIM</option>\n                                <option value="NAO">NÃO</option>\n                                <option value="OK">OK</option>')
-# O replace acima pode ter afetado os selects, vamos checar.
-
-
-```
-
-```python
-with open("index_10.html", "r", encoding="utf-8") as f:
-    code = f.read()
-
-# Vamos restaurar e fazer uma alteração precisa via script python substituindo partes do JS e HTML relacionados ao status.
-
-# Vamos atualizar a renderização dos badges de status e o ciclo de alternância (clique no botão de status):
-# SIM -> VERDE (bg-success)
-# NÃO -> VERMELHO (bg-danger)
-# OK -> CINZA (bg-secondary)
-
-# No JS, o botão de alternância atualmente faz:
-# lista[idx].chegou = normalizar(lista[idx].chegou) === 'OK' ? 'PENDENTE' : 'OK';
-# Agora, queremos que ao clicar no botão alterne entre SIM -> NAO -> OK -> SIM (ou outro ciclo lógico, ex: SIM -> NAO -> OK -> SIM).
-# Vamos ver como está essa função no JS:
-# window.alternarStatusChegou = ...
-
-# Vamos procurar a função no código:
-print("Procurando alternarStatusChegou...")
-for line in code.splitlines():
-    if 'alternarStatusChegou' in line or 'chegou' in line:
-        print(line)
+# Vamos verificar como estão os filtros de status em Envios e Retornos
+import re
+for m in re.finditer(r'filter(Env|Ret)Status.*?</select>', code, re.DOTALL):
+    print("--- MATCH ---")
+    print(m.group(0))
 
 
 ```
 
 ```text
-Procurando alternarStatusChegou...
-                const statusItem = normalizar(item.chegou) === 'OK' ? 'OK' : 'PENDENTE';
-                const isOk = normalizar(item.chegou) === 'OK';
-                    : `<span class="badge bg-warning text-dark">${item.chegou || 'PENDENTE'}</span>`;
-                const fnToggle = `alternarStatusChegou('${tipo}', ${idx})`;
-        window.alternarStatusChegou = function(tipo, idx) {
-            lista[idx].chegou = normalizar(lista[idx].chegou) === 'OK' ? 'PENDENTE' : 'OK';
-            document.getElementById('envChegou').value = normalizar(item.chegou) === 'OK' ? 'OK' : 'PENDENTE';
-                chegou: document.getElementById('envChegou').value
-                        chegou: 'PENDENTE'
-            document.getElementById('retChegou').value = normalizar(item.chegou) === 'OK' ? 'OK' : 'PENDENTE';
-                chegou: document.getElementById('retChegou').value
-                    chegou: normalizar(formatarCelulaExcel(row[11])) === 'OK' ? 'OK' : (formatarCelulaExcel(row[11]) === '-' ? 'PENDENTE' : formatarCelulaExcel(row[11]).toUpperCase())
-                'RASTREIO': i.rastreio, 'PREVISÃO': i.previsao, 'CHEGOU': i.chegou
+Traceback (most recent call last):
+  File "<xbox-string>", line 1, in <module>
+    with open("cf0a0f3e.html", "r", encoding="utf-8") as f:
+FileNotFoundError: [Errno 2] No such file or directory: 'cf0a0f3e.html'
 
 
 ```
 
 ```python
-# Vamos reescrever o tratamento de status no código inteiro de forma limpa:
-# Valores possíveis para chegou: 'SIM' (Verde), 'NAO' (Vermelho), 'OK' (Cinza). Default para novos ou vazios: 'SIM' ou 'NAO'.
-# Vamos criar uma função renderizadora de badge:
-# function obterBadgeStatus(val) {
-#     const s = normalizar(val);
-#     if (s === 'SIM') return '<span class="badge bg-success">SIM</span>';
-#     if (s === 'NAO' || s === 'NÃO') return '<span class="badge bg-danger">NÃO</span>';
-#     if (s === 'OK') return '<span class="badge bg-secondary">OK</span>';
-#     return `<span class="badge bg-success">${val || 'SIM'}</span>`;
-# }
+import os
+print(os.listdir("."))
+with open("index.html", "r", encoding="utf-8") as f:
+    code = f.read()
+import re
+for m in re.finditer(r'filter(Env|Ret)Status.*?</select>', code, re.DOTALL):
+    print("--- MATCH ---")
+    print(m.group(0))
 
-# E para alternar o status ao clicar no botão:
-# SIM -> NAO -> OK -> SIM
 
-with open("index_10.html", "r", encoding="utf-8") as f:
+```
+
+```text
+['input_file_7.png', 'index_10.html', 'input_file_6.png', 'input_file_5.png', 'input_file_4.png', 'input_file_3.png', 'input_file_2.png', 'input_file_1.png', 'input_file_0.png', 'index.html']
+--- MATCH ---
+filterEnvStatus" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="SIM">SIM</option>
+                                <option value="NAO">NÃO</option>
+                                <option value="OK">OK</option>
+                            </select>
+--- MATCH ---
+filterRetStatus" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="SIM">SIM</option>
+                                <option value="NAO">NÃO</option>
+                                <option value="OK">OK</option>
+                            </select>
+
+
+```
+
+```python
+with open("index.html", "r", encoding="utf-8") as f:
     code = f.read()
 
-# Substituir o trecho do badge no renderizarTabelaLogistica:
-old_badge_code = """                const isOk = normalizar(item.chegou) === 'OK';
-                const badgeStatus = isOk 
-                    ? `<span class="badge bg-success">OK</span>` 
-                    : `<span class="badge bg-warning text-dark">${item.chegou || 'PENDENTE'}</span>`;"""
-
-new_badge_code = """                const st = normalizar(item.chegou) || 'SIM';
-                let badgeClass = 'bg-success';
-                if (st === 'NAO' || st === 'NÃO') badgeClass = 'bg-danger';
-                else if (st === 'OK') badgeClass = 'bg-secondary';
-                const badgeStatus = `<span class="badge ${badgeClass}">${st}</span>`;"""
-
-code = code.replace(old_badge_code, new_badge_code)
-
-# Atualizar a função alternarStatusChegou no JS:
-old_toggle = """        window.alternarStatusChegou = function(tipo, idx) {
-            if (!isAdmin) return;
-            const lista = tipo === 'envios' ? dadosEnvios : dadosRetornos;
-            lista[idx].chegou = normalizar(lista[idx].chegou) === 'OK' ? 'PENDENTE' : 'OK';
-            salvarNoFirebase(tipo, lista);
-        };"""
-
-new_toggle = """        window.alternarStatusChegou = function(tipo, idx) {
-            if (!isAdmin) return;
-            const lista = tipo === 'envios' ? dadosEnvios : dadosRetornos;
-            const atual = normalizar(lista[idx].chegou);
-            let proximo = 'NAO';
-            if (atual === 'SIM') proximo = 'NAO';
-            else if (atual === 'NAO' || atual === 'NÃO') proximo = 'OK';
-            else proximo = 'SIM';
-            lista[idx].chegou = proximo;
-            salvarNoFirebase(tipo, lista);
-        };"""
-
-code = code.replace(old_toggle, new_toggle)
-
-# Atualizar o filtro de status no JS (statusItem):
-old_status_filter = "const statusItem = normalizar(item.chegou) === 'OK' ? 'OK' : 'PENDENTE';"
-new_status_filter = "const statusItem = normalizar(item.chegou) || 'SIM';"
-
-code = code.replace(old_status_filter, new_status_filter)
-
-# Atualizar a importação do Excel para tratar default como 'SIM' se vier vazio:
-old_import_status = "chegou: normalizar(formatarCelulaExcel(row[11])) === 'OK' ? 'OK' : (formatarCelulaExcel(row[11]) === '-' ? 'PENDENTE' : formatarCelulaExcel(row[11]).toUpperCase())"
-new_import_status = "chegou: formatarCelulaExcel(row[11]) === '-' ? 'SIM' : formatarCelulaExcel(row[11]).toUpperCase()"
-
-code = code.replace(old_import_status, new_import_status)
-
-# Atualizar os formulários HTML para os selects com SIM, NÃO, OK:
-old_forms_selects = """                                <div class="col-12 col-md-3">
-                                    <select id="envChegou" class="form-select form-select-sm" title="Status de recebimento">
-                                        <option value="PENDENTE">PENDENTE</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (OK / Pendente)</div>
-                                </div>"""
-
-new_forms_selects_env = """                                <div class="col-12 col-md-3">
-                                    <select id="envChegou" class="form-select form-select-sm" title="Status">
-                                        <option value="SIM">SIM</option>
-                                        <option value="NAO">NÃO</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
-                                </div>"""
-
-code = code.replace(old_forms_selects, new_forms_selects_env)
-
-old_forms_selects_ret = """                                <div class="col-12 col-md-3">
-                                    <select id="retChegou" class="form-select form-select-sm">
-                                        <option value="PENDENTE">PENDENTE</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (OK / Pendente)</div>
-                                </div>"""
-
-new_forms_selects_ret = """                                <div class="col-12 col-md-3">
-                                    <select id="retChegou" class="form-select form-select-sm">
-                                        <option value="SIM">SIM</option>
-                                        <option value="NAO">NÃO</option>
-                                        <option value="OK">OK</option>
-                                    </select>
-                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
-                                </div>"""
-
-code = code.replace(old_forms_selects_ret, new_forms_selects_ret)
-
-# Atualizar os selects de filtro nas abas:
-old_filter_html = """                            <select id="filterEnvStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="OK">OK</option>
-                                <option value="PENDENTE">PENDENTE</option>
-                            </select>"""
-
-new_filter_html = """                            <select id="filterEnvStatus" class="form-select">
+# 1. Substituir o filtro de status em Envios
+old_env_filter_block = """                        <div class="col-md-2">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <select id="filterEnvStatus" class="form-select">
                                 <option value="">Todos</option>
                                 <option value="SIM">SIM</option>
                                 <option value="NAO">NÃO</option>
                                 <option value="OK">OK</option>
-                            </select>"""
+                            </select>
+                        </div>"""
 
-code = code.replace(old_filter_html, new_filter_html)
+new_env_filter_block = """                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <div class="d-flex flex-wrap gap-3 pt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnvSim" value="SIM" checked onchange="filtrarEnvios()">
+                                    <label class="form-check-label text-success fw-bold" for="chkEnvSim">SIM</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnvNao" value="NAO" checked onchange="filtrarEnvios()">
+                                    <label class="form-check-label text-danger fw-bold" for="chkEnvNao">NÃO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnvOk" value="OK" checked onchange="filtrarEnvios()">
+                                    <label class="form-check-label text-secondary fw-bold" for="chkEnvOk">OK</label>
+                                </div>
+                            </div>
+                        </div>"""
 
-# Como há dois filtros parecidos (Envios e Retornos), vamos substituir o de Retornos também se houver:
-old_filter_ret_html = """                            <select id="filterRetStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="OK">OK</option>
-                                <option value="PENDENTE">PENDENTE</option>
-                            </select>"""
+# Ajustar col-md-5 para col-md-4 no searchEnvio para caber perfeito na linha de 12 colunas (4 + 3 + 3 + 2 = 12)
+old_env_search = """                        <div class="col-md-5">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchEnvio" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>"""
 
-new_filter_ret_html = """                            <select id="filterRetStatus" class="form-select">
+new_env_search = """                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchEnvio" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>"""
+
+# 2. Substituir o filtro de status em Retornos
+old_ret_filter_block = """                        <div class="col-md-2">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <select id="filterRetStatus" class="form-select">
                                 <option value="">Todos</option>
                                 <option value="SIM">SIM</option>
                                 <option value="NAO">NÃO</option>
                                 <option value="OK">OK</option>
-                            </select>"""
+                            </select>
+                        </div>"""
 
-code = code.replace(old_filter_ret_html, new_filter_ret_html)
+new_ret_filter_block = """                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <div class="d-flex flex-wrap gap-3 pt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetSim" value="SIM" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-success fw-bold" for="chkRetSim">SIM</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetNao" value="NAO" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-danger fw-bold" for="chkRetNao">NÃO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetOk" value="OK" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-secondary fw-bold" for="chkRetOk">OK</label>
+                                </div>
+                            </div>
+                        </div>"""
 
-# Salvar o arquivo final atualizado como index.html
+old_ret_search = """                        <div class="col-md-5">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchRetorno" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>"""
+
+new_ret_search = """                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchRetorno" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>"""
+
+assert old_env_filter_block in code, "old_env_filter_block não encontrado"
+assert old_ret_filter_block in code, "old_ret_filter_block não encontrado"
+assert old_env_search in code, "old_env_search não encontrado"
+assert old_ret_search in code, "old_ret_search não encontrado"
+
+code = code.replace(old_env_search, new_env_search)
+code = code.replace(old_env_filter_block, new_env_filter_block)
+code = code.replace(old_ret_search, new_ret_search)
+code = code.replace(old_ret_filter_block, new_ret_filter_block)
+
+# 3. Atualizar a lógica JS de renderizarTabelaLogistica
+old_js_filter = """            const statusSel = document.getElementById(isEnvio ? 'filterEnvStatus' : 'filterRetStatus').value;
+
+            const filtrados = lista.filter(item => {
+                const matchTexto = 
+                    (item.os || '').toLowerCase().includes(termo) ||
+                    (item.cliente || '').toLowerCase().includes(termo) ||
+                    (item.tecnico || '').toLowerCase().includes(termo) ||
+                    (item.pecas || '').toLowerCase().includes(termo) ||
+                    (item.rastreio || '').toLowerCase().includes(termo) ||
+                    (item.nf || '').toLowerCase().includes(termo);
+                const matchTec = tecSel === '' || item.tecnico === tecSel;
+                const statusItem = normalizar(item.chegou) || 'SIM';
+                const matchStatus = statusSel === '' || statusItem === statusSel;
+                return matchTexto && matchTec && matchStatus;
+            });"""
+
+new_js_filter = """            const prefixo = isEnvio ? 'chkEnv' : 'chkRet';
+            const statusPermitidos = [];
+            if (document.getElementById(`${prefixo}Sim`).checked) statusPermitidos.push('SIM');
+            if (document.getElementById(`${prefixo}Nao`).checked) {
+                statusPermitidos.push('NAO');
+                statusPermitidos.push('NÃO');
+            }
+            if (document.getElementById(`${prefixo}Ok`).checked) statusPermitidos.push('OK');
+
+            const filtrados = lista.filter(item => {
+                const matchTexto = 
+                    (item.os || '').toLowerCase().includes(termo) ||
+                    (item.cliente || '').toLowerCase().includes(termo) ||
+                    (item.tecnico || '').toLowerCase().includes(termo) ||
+                    (item.pecas || '').toLowerCase().includes(termo) ||
+                    (item.rastreio || '').toLowerCase().includes(termo) ||
+                    (item.nf || '').toLowerCase().includes(termo);
+                const matchTec = tecSel === '' || item.tecnico === tecSel;
+                const statusItem = normalizar(item.chegou) || 'SIM';
+                const matchStatus = statusPermitidos.includes(statusItem);
+                return matchTexto && matchTec && matchStatus;
+            });"""
+
+assert old_js_filter in code, "old_js_filter não encontrado"
+code = code.replace(old_js_filter, new_js_filter)
+
+# 4. Expor filtrarEnvios e filtrarRetornos no objeto window para o onchange inline funcionar
+code = code.replace("function filtrarEnvios() { renderizarTabelaLogistica('envios'); }", "window.filtrarEnvios = function() { renderizarTabelaLogistica('envios'); };")
+code = code.replace("function filtrarRetornos() { renderizarTabelaLogistica('retornos'); }", "window.filtrarRetornos = function() { renderizarTabelaLogistica('retornos'); };")
+
+# 5. Atualizar listeners de limpar filtros e remover event listeners antigos de filterEnvStatus/filterRetStatus
+old_listeners = """        document.getElementById('searchEnvio').addEventListener('input', filtrarEnvios);
+        document.getElementById('filterEnvTecnico').addEventListener('change', filtrarEnvios);
+        document.getElementById('filterEnvStatus').addEventListener('change', filtrarEnvios);
+        document.getElementById('btnLimparFiltroEnv').addEventListener('click', () => {
+            document.getElementById('searchEnvio').value = '';
+            document.getElementById('filterEnvTecnico').value = '';
+            document.getElementById('filterEnvStatus').value = '';
+            filtrarEnvios();
+        });
+
+        document.getElementById('searchRetorno').addEventListener('input', filtrarRetornos);
+        document.getElementById('filterRetTecnico').addEventListener('change', filtrarRetornos);
+        document.getElementById('filterRetStatus').addEventListener('change', filtrarRetornos);
+        document.getElementById('btnLimparFiltroRet').addEventListener('click', () => {
+            document.getElementById('searchRetorno').value = '';
+            document.getElementById('filterRetTecnico').value = '';
+            document.getElementById('filterRetStatus').value = '';
+            filtrarRetornos();
+        });"""
+
+new_listeners = """        document.getElementById('searchEnvio').addEventListener('input', filtrarEnvios);
+        document.getElementById('filterEnvTecnico').addEventListener('change', filtrarEnvios);
+        document.getElementById('btnLimparFiltroEnv').addEventListener('click', () => {
+            document.getElementById('searchEnvio').value = '';
+            document.getElementById('filterEnvTecnico').value = '';
+            document.getElementById('chkEnvSim').checked = true;
+            document.getElementById('chkEnvNao').checked = true;
+            document.getElementById('chkEnvOk').checked = true;
+            filtrarEnvios();
+        });
+
+        document.getElementById('searchRetorno').addEventListener('input', filtrarRetornos);
+        document.getElementById('filterRetTecnico').addEventListener('change', filtrarRetornos);
+        document.getElementById('btnLimparFiltroRet').addEventListener('click', () => {
+            document.getElementById('searchRetorno').value = '';
+            document.getElementById('filterRetTecnico').value = '';
+            document.getElementById('chkRetSim').checked = true;
+            document.getElementById('chkRetNao').checked = true;
+            document.getElementById('chkRetOk').checked = true;
+            filtrarRetornos();
+        });"""
+
+assert old_listeners in code, "old_listeners não encontrado"
+code = code.replace(old_listeners, new_listeners)
+
+# Também corrigir prepararEdicaoEnv, prepararEdicaoRet e gerarRetorno no formNovoEnvio para usar SIM/NAO/OK em vez de PENDENTE
+code = code.replace("chegou: 'PENDENTE'", "chegou: 'SIM'")
+code = code.replace("normalizar(item.chegou) === 'OK' ? 'OK' : 'PENDENTE'", "(normalizar(item.chegou) === 'NAO' || normalizar(item.chegou) === 'NÃO') ? 'NAO' : (normalizar(item.chegou) === 'OK' ? 'OK' : 'SIM')")
+
 with open("index.html", "w", encoding="utf-8") as f:
     f.write(code)
 
-print("Atualização concluída com sucesso!")
+print("Checkboxes de filtro implementados com sucesso!")
 
 
 ```
 
 ```text
-Atualização concluída com sucesso!
+Checkboxes de filtro implementados com sucesso!
 
 
 ```
 
-Pronto! O sistema foi atualizado tanto na aba de **Envios** quanto na de **Retornos**:
+Substituí a lista suspensa de filtro por **caixas de marcação (checkboxes)** individuais para **SIM**, **NÃO** e **OK** nas abas **Envios** e **Retornos**:
 
-* **Opções de Status**: Substituído o antigo "Pendente" por **SIM** (Verde), **NÃO** (Vermelho) e **OK** (Cinza).
-* **Botão de Ação Rápida**: Ao clicar no botão de alternar status na tabela, ele agora alterna ciclicamente entre **SIM** ➔ **NÃO** ➔ **OK**.
-* **Filtros e Formulários**: Os seletores e filtros nas tabelas de Envios e Retornos refletem as novas opções com total compatibilidade.
-
-O arquivo atualizado está pronto para uso:
+* **Visualização combinada**: Você pode marcar ou desmarcar livremente qualquer combinação (por exemplo, visualizar apenas **SIM** e **NÃO** juntos, ocultando os já finalizados em **OK**).
+* **Identificação por cor**: Cada caixa segue as mesmas cores dos badges (**SIM** em verde, **NÃO** em vermelho e **OK** em cinza).
+* **Botão Limpar**: Ao clicar em **Limpar**, todas as três caixas voltam a ficar marcadas automaticamente.

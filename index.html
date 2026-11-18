@@ -88,7 +88,7 @@
                 <h4 class="fw-bold">Acesso Restrito</h4>
                 <p class="text-muted small">Digite a senha para acessar o sistema</p>
             </div>
-            <form id="formLoginInicial">
+            <form id="formLoginInicial" onsubmit="tentarEntrar(event)">
                 <div class="mb-3">
                     <input type="password" id="inputSenhaInicial" class="form-control text-center" placeholder="••••" required autofocus>
                 </div>
@@ -108,7 +108,7 @@
                     <h6 class="modal-title"><i class="fas fa-user-lock me-2 text-warning"></i>Modo Administrador</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <form id="formLoginAdmin">
+                <form id="formLoginAdmin" onsubmit="tentarAdmin(event)">
                     <div class="modal-body">
                         <label class="form-label small text-muted">Digite a senha de administrador:</label>
                         <input type="password" id="inputSenhaAdmin" class="form-control text-center" placeholder="••••" required>
@@ -191,7 +191,7 @@
                     <div class="col-lg-8">
                         <div class="card p-3 h-100">
                             <h5 class="card-title text-success mb-3" id="formTituloTec"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico</h5>
-                            <form id="formNovoTecnico" class="row g-2">
+                            <form id="formNovoTecnico" onsubmit="salvarTecnicoForm(event)" class="row g-2">
                                 <input type="hidden" id="editIndexTec" value="-1">
                                 <div class="col-md-6">
                                     <input type="text" id="novoNome" class="form-control form-control-sm" placeholder="Nome do Técnico" required>
@@ -313,7 +313,7 @@
                     <div class="col-lg-9">
                         <div class="card p-3 h-100">
                             <h5 class="card-title text-success mb-3" id="formTituloEnv"><i class="fas fa-plus-circle me-2"></i>Novo Lançamento de Envio</h5>
-                            <form id="formNovoEnvio" class="row g-2">
+                            <form id="formNovoEnvio" onsubmit="salvarEnvioForm(event)" class="row g-2">
                                 <input type="hidden" id="editIndexEnv" value="-1">
                                 <div class="col-6 col-md-2">
                                     <input type="text" id="envDataPed" class="form-control form-control-sm" placeholder="DD/MM/AA" required title="Data em que o pedido foi feito">
@@ -484,7 +484,7 @@
                                 <h5 class="card-title text-warning mb-0" id="formTituloRet"><i class="fas fa-exchange-alt me-2"></i>Lançar / Editar Retorno de Peça</h5>
                                 <span class="badge bg-info text-dark">Puxa dados automático pela O.S.</span>
                             </div>
-                            <form id="formNovoRetorno" class="row g-2">
+                            <form id="formNovoRetorno" onsubmit="salvarRetornoForm(event)" class="row g-2">
                                 <input type="hidden" id="editIndexRet" value="-1">
                                 
                                 <!-- Busca Rápida por O.S. Digitando -->
@@ -649,7 +649,7 @@
         // ==========================================
         // AUTENTICAÇÃO E INICIALIZAÇÃO
         // ==========================================
-        document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
+        window.tentarEntrar = function(e) {
             e.preventDefault();
             const digitada = document.getElementById('inputSenhaInicial').value.trim();
 
@@ -675,7 +675,7 @@
                 document.getElementById('inputSenhaInicial').value = '';
                 document.getElementById('inputSenhaInicial').focus();
             }
-        });
+        };
 
         window.alternarModoAdmin = function() {
             if (!isAdmin) {
@@ -697,7 +697,7 @@
             }
         };
 
-        document.getElementById('formLoginAdmin').addEventListener('submit', function(e) {
+        window.tentarAdmin = function(e) {
             e.preventDefault();
             const digitada = document.getElementById('inputSenhaAdmin').value.trim();
 
@@ -715,7 +715,7 @@
                 document.getElementById('inputSenhaAdmin').value = '';
                 document.getElementById('inputSenhaAdmin').focus();
             }
-        });
+        };
 
         window.trocarAba = function(aba) {
             abaAtual = aba;
@@ -904,7 +904,7 @@
             document.getElementById('btnCancelarTec').classList.add('d-none');
         };
 
-        document.getElementById('formNovoTecnico').addEventListener('submit', function(e) {
+        window.salvarTecnicoForm = function(e) {
             e.preventDefault();
             if (!isAdmin) return;
             const editIdx = parseInt(document.getElementById('editIndexTec').value);
@@ -927,10 +927,10 @@
                 cancelarEdicaoTec();
             } else {
                 dadosTecnicos.unshift(obj);
-                this.reset();
+                document.getElementById('formNovoTecnico').reset();
             }
             salvarNoFirebase('tecnicos', dadosTecnicos);
-        });
+        };
 
         function extrairListaTecnicos(worksheet) {
             const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ''});
@@ -1172,7 +1172,7 @@
             document.getElementById('btnCancelarEnv').classList.add('d-none');
         };
 
-        document.getElementById('formNovoEnvio').addEventListener('submit', function(e) {
+        window.salvarEnvioForm = function(e) {
             e.preventDefault();
             if (!isAdmin) return;
             const editIdx = parseInt(document.getElementById('editIndexEnv').value);
@@ -1195,7 +1195,6 @@
 
             if (editIdx >= 0) {
                 dadosEnvios[editIdx] = obj;
-                // Sincroniza colunas B, C, D, E, G, H, I no Retorno correspondente (se existir pela O.S.)
                 const retVinculado = dadosRetornos.find(r => r.os === obj.os && obj.os !== '-');
                 if (retVinculado) {
                     retVinculado.tecnico = obj.tecnico;
@@ -1227,11 +1226,11 @@
                     dadosRetornos.unshift(objRetorno);
                     salvarNoFirebase('retornos', dadosRetornos);
                 }
-                this.reset();
+                document.getElementById('formNovoEnvio').reset();
                 document.getElementById('chkCriarRetorno').checked = true;
             }
             salvarNoFirebase('envios', dadosEnvios);
-        });
+        };
 
         // Formulário de Retornos
         window.prepararEdicaoRet = function(idx) {
@@ -1267,7 +1266,7 @@
             document.getElementById('btnCancelarRet').classList.add('d-none');
         };
 
-        document.getElementById('formNovoRetorno').addEventListener('submit', function(e) {
+        window.salvarRetornoForm = function(e) {
             e.preventDefault();
             if (!isAdmin) return;
             const editIdx = parseInt(document.getElementById('editIndexRet').value);
@@ -1292,10 +1291,10 @@
                 cancelarEdicaoRet();
             } else {
                 dadosRetornos.unshift(obj);
-                this.reset();
+                document.getElementById('formNovoRetorno').reset();
             }
             salvarNoFirebase('retornos', dadosRetornos);
-        });
+        };
 
         // Importação de Planilhas de Envio e Retorno (Colunas A até L)
         function extrairListaLogistica(worksheet) {
@@ -1486,3 +1485,8 @@
             document.getElementById('chkRetSim').checked = true;
             document.getElementById('chkRetNao').checked = true;
             document.getElementById('chkRetOk').checked = true;
+            filtrarRetornos();
+        });
+    </script>
+</body>
+</html>

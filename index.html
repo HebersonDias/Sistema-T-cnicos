@@ -1370,4 +1370,119 @@
             if (!isAdmin || !e.target.files[0]) return;
             lerPlanilhaLogistica(e.target.files[0], 'RETORNO', (lista, sheetName) => {
                 if (lista.length > 0) {
-                    sal
+                    salvarNoFirebase('retornos', lista);
+                    alert(`Sucesso! ${lista.length} registros de Retorno importados da guia "${sheetName}".`);
+                } else {
+                    alert("Nenhum registro de retorno encontrado.");
+                }
+                e.target.value = '';
+            });
+        };
+
+        // Importação Única de Todas as Guias de uma só vez
+        window.processarPlanilhaCompleta = function(e) {
+            if (!isAdmin || !e.target.files[0]) return;
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                    let resumo = [];
+
+                    const abaTec = workbook.SheetNames.find(n => normalizar(n).includes('TECNICO') || normalizar(n).includes('TÉCNICO') || normalizar(n).includes('CONTA'));
+                    if (abaTec) {
+                        const listaTec = extrairListaTecnicos(workbook.Sheets[abaTec]);
+                        if (listaTec.length > 0) {
+                            salvarNoFirebase('tecnicos', listaTec);
+                            resumo.push(`• Técnicos (${abaTec}): ${listaTec.length} registros`);
+                        }
+                    }
+
+                    const abaEnv = workbook.SheetNames.find(n => normalizar(n).includes('ENVIO'));
+                    if (abaEnv) {
+                        const listaEnv = extrairListaLogistica(workbook.Sheets[abaEnv]);
+                        if (listaEnv.length > 0) {
+                            salvarNoFirebase('envios', listaEnv);
+                            resumo.push(`• Envios (${abaEnv}): ${listaEnv.length} registros`);
+                        }
+                    }
+
+                    const abaRet = workbook.SheetNames.find(n => normalizar(n).includes('RETORNO'));
+                    if (abaRet) {
+                        const listaRet = extrairListaLogistica(workbook.Sheets[abaRet]);
+                        if (listaRet.length > 0) {
+                            salvarNoFirebase('retornos', listaRet);
+                            resumo.push(`• Retornos (${abaRet}): ${listaRet.length} registros`);
+                        }
+                    }
+
+                    if (resumo.length > 0) {
+                        alert("Importação concluída na nuvem!\n\n" + resumo.join("\n"));
+                    } else {
+                        alert("Nenhuma guia correspondente (Técnicos/Contas, Envios ou Retornos) foi identificada no arquivo.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao ler o arquivo Excel. Certifique-se de que ele não está bloqueado por senha de abertura.");
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // ==========================================
+        // EXPORTAÇÃO UNIFICADA (.XLSX COM 3 ABAS)
+        // ==========================================
+        window.exportarPlanilhaCompleta = function() {
+            const wb = XLSX.utils.book_new();
+
+            const wsTec = XLSX.utils.json_to_sheet(dadosTecnicos.map(i => ({
+                'Nome': i.nome, 'Empresa': i.empresa, 'Dados Bancários': i.banco,
+                'PF ou PJ': i.tipo, 'Cidade': i.cidade, 'Estado': i.estado,
+                'Código de Faturamento': i.fat, 'Código de Envio': i.envio, 'Telefone': i.tel
+            })));
+            XLSX.utils.book_append_sheet(wb, wsTec, "Técnicos");
+
+            const mapLogistica = (lista) => lista.map(i => ({
+                'DATA PED': i.dataPed, 'TÉCNICO': i.tecnico, 'DT FORNO': i.dtForno,
+                'NF': i.nf, 'MODELO': i.modelo, 'PEDIDO': i.pedido,
+                'O.S.': i.os, 'CLIENTE': i.cliente, 'PEÇAS': i.pecas,
+                'RASTREIO': i.rastreio, 'PREVISÃO': i.previsao, 'CHEGOU': i.chegou
+            }));
+
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mapLogistica(dadosEnvios)), "Envios");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mapLogistica(dadosRetornos)), "Retornos");
+
+            XLSX.writeFile(wb, "Controle_Tecnicos_Envios_Retornos.xlsx");
+        };
+
+        // Listeners de Filtros
+        document.getElementById('searchNome').addEventListener('input', filtrarTecnicos);
+        document.getElementById('filterTipo').addEventListener('change', filtrarTecnicos);
+        document.getElementById('filterEstado').addEventListener('change', filtrarTecnicos);
+        document.getElementById('btnLimparTec').addEventListener('click', () => {
+            document.getElementById('searchNome').value = '';
+            document.getElementById('filterTipo').value = '';
+            document.getElementById('filterEstado').value = '';
+            filtrarTecnicos();
+        });
+
+        document.getElementById('searchEnvio').addEventListener('input', filtrarEnvios);
+        document.getElementById('filterEnvTecnico').addEventListener('change', filtrarEnvios);
+        document.getElementById('btnLimparFiltroEnv').addEventListener('click', () => {
+            document.getElementById('searchEnvio').value = '';
+            document.getElementById('filterEnvTecnico').value = '';
+            document.getElementById('chkEnvSim').checked = true;
+            document.getElementById('chkEnvNao').checked = true;
+            document.getElementById('chkEnvOk').checked = true;
+            filtrarEnvios();
+        });
+
+        document.getElementById('searchRetorno').addEventListener('input', filtrarRetornos);
+        document.getElementById('filterRetTecnico').addEventListener('change', filtrarRetornos);
+        document.getElementById('btnLimparFiltroRet').addEventListener('click', () => {
+            document.getElementById('searchRetorno').value = '';
+            document.getElementById('filterRetTecnico').value = '';
+            document.getElementById('chkRetSim').checked = true;
+            document.getElementById('chkRetNao').checked = true;
+            document.getElementById('chkRetOk').checked = true;

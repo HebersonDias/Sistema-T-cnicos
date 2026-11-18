@@ -1,74 +1,407 @@
-```python
-with open("cf0a0f3e.html", "r", encoding="utf-8") as f:
-    code = f.read()
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão - Técnicos, Envios e Retornos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { background-color: #222222; color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: linear-gradient(135deg, #1f4e78, #2e6da4); }
+        .card { background-color: #2b2b2b; color: #f8f9fa; border: 1px solid #444; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        
+        .table { color: #ffffff !important; }
+        .table tbody td { color: #ffffff !important; background-color: transparent !important; }
+        .table-hover tbody tr:hover { background-color: #383838 !important; color: #ffffff !important; }
+        .badge-estado { font-size: 0.85rem; padding: 0.4em 0.8em; }
+        
+        .form-control, .form-select {
+            background-color: #e9ecef !important;
+            color: #212529 !important;
+            border: 2px solid #adb5bd !important;
+            font-weight: 600;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #f8f9fa !important;
+            border-color: #0d6efd !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .form-control::placeholder {
+            color: #6c757d !important;
+        }
+        .form-control:read-only {
+            background-color: #ced4da !important;
+            color: #495057 !important;
+        }
 
-# Vamos verificar como estão os filtros de status em Envios e Retornos
-import re
-for m in re.finditer(r'filter(Env|Ret)Status.*?</select>', code, re.DOTALL):
-    print("--- MATCH ---")
-    print(m.group(0))
+        .table-dark { background-color: #1a1a1a !important; color: #ffffff !important; }
 
+        /* Abas de Navegação */
+        .nav-pills .nav-link {
+            color: #adb5bd;
+            background-color: #2b2b2b;
+            border: 1px solid #444;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .nav-pills .nav-link:hover {
+            color: #ffffff;
+            background-color: #383838;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+            color: #ffffff;
+            border-color: #0d6efd;
+        }
 
-```
+        /* Tela de Bloqueio */
+        #telaBloqueio {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #181818;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
 
-```text
-Traceback (most recent call last):
-  File "<xbox-string>", line 1, in <module>
-    with open("cf0a0f3e.html", "r", encoding="utf-8") as f:
-FileNotFoundError: [Errno 2] No such file or directory: 'cf0a0f3e.html'
+        @media (max-width: 768px) {
+            .navbar-brand { font-size: 0.95rem !important; }
+            .container-fluid { padding-left: 6px !important; padding-right: 6px !important; }
+            .btn { font-size: 0.78rem !important; padding: 0.28rem 0.5rem !important; }
+            .table td, .table th { padding: 0.35rem 0.25rem !important; font-size: 0.72rem !important; white-space: nowrap; }
+            h5 { font-size: 1.05rem !important; }
+            .nav-pills .nav-link { font-size: 0.85rem; padding: 0.45rem 0.75rem; }
+        }
+    </style>
+</head>
+<body>
 
+    <!-- Tela de Login Inicial -->
+    <div id="telaBloqueio">
+        <div class="card p-4 shadow-lg" style="max-width: 380px; width: 100%;">
+            <div class="text-center mb-3">
+                <i class="fas fa-shield-alt fa-3x text-primary mb-2"></i>
+                <h4 class="fw-bold">Acesso Restrito</h4>
+                <p class="text-muted small">Digite a senha para acessar o sistema</p>
+            </div>
+            <form id="formLoginInicial">
+                <div class="mb-3">
+                    <input type="password" id="inputSenhaInicial" class="form-control text-center" placeholder="••••" required autofocus>
+                </div>
+                <div id="msgErroLogin" class="text-danger small text-center mb-2 d-none">Senha incorreta! Tente novamente.</div>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                    <i class="fas fa-sign-in-alt me-1"></i> Entrar
+                </button>
+            </form>
+        </div>
+    </div>
 
-```
+    <!-- Modal para Senha de Administrador -->
+    <div class="modal fade" id="modalAdmin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h6 class="modal-title"><i class="fas fa-user-lock me-2 text-warning"></i>Modo Administrador</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formLoginAdmin">
+                    <div class="modal-body">
+                        <label class="form-label small text-muted">Digite a senha de administrador:</label>
+                        <input type="password" id="inputSenhaAdmin" class="form-control text-center" placeholder="••••" required>
+                        <div id="msgErroAdmin" class="text-danger small text-center mt-2 d-none">Senha incorreta!</div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold text-dark">Desbloquear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-```python
-import os
-print(os.listdir("."))
-with open("index.html", "r", encoding="utf-8") as f:
-    code = f.read()
-import re
-for m in re.finditer(r'filter(Env|Ret)Status.*?</select>', code, re.DOTALL):
-    print("--- MATCH ---")
-    print(m.group(0))
+    <div id="conteudoSistema" class="d-none">
+        <!-- Barra Superior -->
+        <nav class="navbar navbar-dark shadow-sm mb-3">
+            <div class="container-fluid px-2 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 py-2">
+                <span class="navbar-brand mb-0 h1 text-center text-md-start">
+                    <i class="fas fa-cogs me-2"></i>Sistema de Gestão Operacional
+                </span>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <button id="btnAdminToggle" class="btn btn-warning btn-sm fw-semibold text-dark" onclick="alternarModoAdmin()">
+                        <i class="fas fa-lock me-1" id="iconeAdmin"></i> <span id="textoAdmin">Modo Admin (Bloqueado)</span>
+                    </button>
+                    <button id="btnImportarGeral" class="btn btn-info btn-sm fw-semibold text-dark d-none admin-panel" onclick="document.getElementById('inputPlanilhaCompleta').click();" title="Importa Técnicos, Envios e Retornos de um único arquivo Excel">
+                        <i class="fas fa-file-import me-1"></i> Importar Planilha Completa
+                    </button>
+                    <input type="file" id="inputPlanilhaCompleta" accept=".xlsx, .xls" class="d-none" onchange="processarPlanilhaCompleta(event)">
+                    <button id="btnExportarGeral" class="btn btn-light btn-sm fw-semibold text-primary" onclick="exportarPlanilhaCompleta()">
+                        <i class="fas fa-file-export me-1"></i> Baixar Planilha (.xlsx)
+                    </button>
+                </div>
+            </div>
+        </nav>
 
+        <div class="container-fluid px-2 px-md-4 pb-5">
+            <!-- Navegação por Abas -->
+            <ul class="nav nav-pills nav-fill gap-2 mb-4" id="abasSistema">
+                <li class="nav-item">
+                    <button class="nav-link active" id="tab-tecnicos" onclick="trocarAba('tecnicos')">
+                        <i class="fas fa-users-cog me-1"></i> Técnicos
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-envios" onclick="trocarAba('envios')">
+                        <i class="fas fa-truck-loading me-1"></i> Envios
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-retornos" onclick="trocarAba('retornos')">
+                        <i class="fas fa-undo-alt me-1"></i> Retornos
+                    </button>
+                </li>
+            </ul>
 
-```
+            <!-- ========================================== -->
+            <!-- SEÇÃO 1: TÉCNICOS                          -->
+            <!-- ========================================== -->
+            <div id="secao-tecnicos">
+                <!-- Painel Admin Técnicos -->
+                <div class="row g-3 mb-4 d-none admin-panel">
+                    <div class="col-lg-4">
+                        <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Importar Planilha de Técnicos</h5>
+                                <p class="text-muted small mb-3">Envie um arquivo Excel/CSV (lê a aba "Técnicos" ou a primeira aba).</p>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilhaTecnicos').click();">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> Selecionar Planilha (.xlsx)
+                                </button>
+                                <input type="file" id="inputPlanilhaTecnicos" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilhaTecnicos(event)">
+                                <button class="btn btn-outline-danger btn-sm w-100 fw-semibold" onclick="limparBanco('tecnicos')">
+                                    <i class="fas fa-trash-alt me-1"></i> Limpar Todos os Técnicos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-```text
-['input_file_7.png', 'index_10.html', 'input_file_6.png', 'input_file_5.png', 'input_file_4.png', 'input_file_3.png', 'input_file_2.png', 'input_file_1.png', 'input_file_0.png', 'index.html']
---- MATCH ---
-filterEnvStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="OK">OK</option>
+                    <div class="col-lg-8">
+                        <div class="card p-3 h-100">
+                            <h5 class="card-title text-success mb-3" id="formTituloTec"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico</h5>
+                            <form id="formNovoTecnico" class="row g-2">
+                                <input type="hidden" id="editIndexTec" value="-1">
+                                <div class="col-md-6">
+                                    <input type="text" id="novoNome" class="form-control form-control-sm" placeholder="Nome do Técnico" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="novaEmpresa" class="form-control form-control-sm" placeholder="Empresa" required>
+                                </div>
+                                <div class="col-md-8">
+                                    <input type="text" id="novoBanco" class="form-control form-control-sm" placeholder="Dados Bancários / PIX" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <select id="novoTipo" class="form-select form-select-sm" required>
+                                        <option value="PJ">PJ</option>
+                                        <option value="PF">PF</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" id="novaCidade" class="form-control form-control-sm" placeholder="Cidade" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" id="novoEstado" class="form-control form-control-sm" placeholder="UF (Ex: SP)" maxlength="2" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" id="novoTel" class="form-control form-control-sm" placeholder="Telefone">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="novoFat" class="form-control form-control-sm" placeholder="Cód. Faturamento">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="novoEnvio" class="form-control form-control-sm" placeholder="Cód. Envio">
+                                </div>
+                                <div class="col-12 mt-2 d-flex gap-2">
+                                    <button type="submit" id="btnSalvarTec" class="btn btn-success btn-sm w-100"><i class="fas fa-save me-1"></i> Adicionar Técnico</button>
+                                    <button type="button" id="btnCancelarTec" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicaoTec()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Técnicos -->
+                <div class="card p-3 p-md-4 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar Técnico, Empresa ou Cidade</label>
+                            <input type="text" id="searchNome" class="form-control" placeholder="Digite para filtrar...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-id-badge me-1"></i> Tipo (PF/PJ)</label>
+                            <select id="filterTipo" class="form-select">
+                                <option value="">Todos (PF e PJ)</option>
+                                <option value="PJ">PJ</option>
+                                <option value="PF">PF</option>
                             </select>
---- MATCH ---
-filterRetStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="OK">OK</option>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-filter me-1"></i> Filtrar por Estado (UF)</label>
+                            <select id="filterEstado" class="form-select">
+                                <option value="">Todos os Estados</option>
                             </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="btnLimparTec" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
 
+                <!-- Tabela Técnicos -->
+                <div class="card p-2 p-md-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Empresa</th>
+                                    <th>Dados Bancários</th>
+                                    <th>PF/PJ</th>
+                                    <th>Cidade</th>
+                                    <th>Estado</th>
+                                    <th>Cód. Faturamento</th>
+                                    <th>Cód. Envio</th>
+                                    <th>Telefone</th>
+                                    <th class="th-acoes d-none">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyTecnicos"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 px-2">
+                        <span class="text-muted small" id="contadorTecnicos">Carregando dados...</span>
+                    </div>
+                </div>
+            </div>
 
-```
+            <!-- ========================================== -->
+            <!-- SEÇÃO 2: ENVIOS                            -->
+            <!-- ========================================== -->
+            <div id="secao-envios" class="d-none">
+                <!-- Painel Admin Envios -->
+                <div class="row g-3 mb-4 d-none admin-panel">
+                    <div class="col-lg-3">
+                        <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Importar Envios</h5>
+                                <p class="text-muted small mb-3">Importa as colunas A até L da guia de Envios do Excel.</p>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilhaEnvios').click();">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> Planilha Envios (.xlsx)
+                                </button>
+                                <input type="file" id="inputPlanilhaEnvios" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilhaEnvios(event)">
+                                <button class="btn btn-outline-danger btn-sm w-100 fw-semibold" onclick="limparBanco('envios')">
+                                    <i class="fas fa-trash-alt me-1"></i> Limpar Todos Envios
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-```python
-with open("index.html", "r", encoding="utf-8") as f:
-    code = f.read()
+                    <div class="col-lg-9">
+                        <div class="card p-3 h-100">
+                            <h5 class="card-title text-success mb-3" id="formTituloEnv"><i class="fas fa-plus-circle me-2"></i>Novo Lançamento de Envio</h5>
+                            <form id="formNovoEnvio" class="row g-2">
+                                <input type="hidden" id="editIndexEnv" value="-1">
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envDataPed" class="form-control form-control-sm" placeholder="DD/MM/AA" required title="Data em que o pedido foi feito">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data do pedido</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="envTecnico" class="form-control form-control-sm" placeholder="Ex: TIAGO" required title="Nome do técnico responsável">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nome do técnico</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envDtForno" class="form-control form-control-sm" placeholder="DD/MM/AA" title="Data de referência do forno">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data referência</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envNf" class="form-control form-control-sm" placeholder="Ex: 10099" title="Número da Nota Fiscal">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nº Nota Fiscal</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <input type="text" id="envModelo" class="form-control form-control-sm" placeholder="Ex: TP 35/80 GAS" title="Modelo do equipamento">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Modelo do forno/equipamento</div>
+                                </div>
 
-# 1. Substituir o filtro de status em Envios
-old_env_filter_block = """                        <div class="col-md-2">
-                            <label class="form-label fw-bold text-light"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
-                            <select id="filterEnvStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="OK">OK</option>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envPedido" class="form-control form-control-sm" placeholder="Ex: 19303" title="Número do pedido interno">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nº Pedido</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envOs" class="form-control form-control-sm" placeholder="Ex: 31902" required title="Ordem de Serviço (Chave de vínculo)">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Ordem de Serviço</div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <input type="text" id="envCliente" class="form-control form-control-sm" placeholder="Nome do Cliente" required title="Nome do cliente final">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nome do cliente</div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <input type="text" id="envPecas" class="form-control form-control-sm" placeholder="Ex: 1 KM7 1 FONTE" required title="Descrição das peças enviadas">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Peças e quantidades</div>
+                                </div>
+
+                                <div class="col-6 col-md-4">
+                                    <input type="text" id="envRastreio" class="form-control form-control-sm" placeholder="Código Correios / Transportadora" title="Código de rastreio ou nome da transportadora">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Código de rastreio ou frete</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="envPrevisao" class="form-control form-control-sm" placeholder="DD/MM/AA ou ?" title="Data prevista de chegada">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Previsão de entrega</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <select id="envChegou" class="form-select form-select-sm" title="Status">
+                                        <option value="SIM">SIM</option>
+                                        <option value="NAO">NÃO</option>
+                                        <option value="OK">OK</option>
+                                    </select>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
+                                </div>
+                                <div class="col-12 col-md-2 d-flex align-items-center">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="chkCriarRetorno" checked>
+                                        <label class="form-check-label small text-info fw-semibold" for="chkCriarRetorno" title="Gera automaticamente o espelho na aba Retornos">
+                                            Gerar Retorno
+                                        </label>
+                                        <div class="form-text text-info" style="font-size: 0.65rem;">Espelha na aba Retorno</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 mt-2 d-flex gap-2">
+                                    <button type="submit" id="btnSalvarEnv" class="btn btn-success btn-sm w-100"><i class="fas fa-save me-1"></i> Salvar Envio</button>
+                                    <button type="button" id="btnCancelarEnv" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicaoEnv()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Envios -->
+                <div class="card p-3 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchEnvio" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-user-cog me-1"></i> Filtrar Técnico</label>
+                            <select id="filterEnvTecnico" class="form-select">
+                                <option value="">Todos os Técnicos</option>
                             </select>
-                        </div>"""
-
-new_env_filter_block = """                        <div class="col-md-3">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
                             <div class="d-flex flex-wrap gap-3 pt-1">
                                 <div class="form-check">
@@ -84,181 +417,132 @@ new_env_filter_block = """                        <div class="col-md-3">
                                     <label class="form-check-label text-secondary fw-bold" for="chkEnvOk">OK</label>
                                 </div>
                             </div>
-                        </div>"""
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="btnLimparFiltroEnv" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
 
-# Ajustar col-md-5 para col-md-4 no searchEnvio para caber perfeito na linha de 12 colunas (4 + 3 + 3 + 2 = 12)
-old_env_search = """                        <div class="col-md-5">
-                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
-                            <input type="text" id="searchEnvio" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
-                        </div>"""
+                <!-- Tabela Envios -->
+                <div class="card p-2 p-md-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>DATA PED.</th>
+                                    <th>TÉCNICO</th>
+                                    <th>DT FORNO</th>
+                                    <th>NF</th>
+                                    <th>MODELO</th>
+                                    <th>PEDIDO</th>
+                                    <th>O.S.</th>
+                                    <th>CLIENTE</th>
+                                    <th>PEÇAS</th>
+                                    <th>RASTREIO</th>
+                                    <th>PREVISÃO</th>
+                                    <th>CHEGOU</th>
+                                    <th class="th-acoes d-none">AÇÕES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyEnvios"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 px-2">
+                        <span class="text-muted small" id="contadorEnvios">Carregando dados...</span>
+                    </div>
+                </div>
+            </div>
 
-new_env_search = """                        <div class="col-md-4">
-                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
-                            <input type="text" id="searchEnvio" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
-                        </div>"""
-
-# 2. Substituir o filtro de status em Retornos
-old_ret_filter_block = """                        <div class="col-md-2">
-                            <label class="form-label fw-bold text-light"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
-                            <select id="filterRetStatus" class="form-select">
-                                <option value="">Todos</option>
-                                <option value="SIM">SIM</option>
-                                <option value="NAO">NÃO</option>
-                                <option value="OK">OK</option>
-                            </select>
-                        </div>"""
-
-new_ret_filter_block = """                        <div class="col-md-3">
-                            <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
-                            <div class="d-flex flex-wrap gap-3 pt-1">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="chkRetSim" value="SIM" checked onchange="filtrarRetornos()">
-                                    <label class="form-check-label text-success fw-bold" for="chkRetSim">SIM</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="chkRetNao" value="NAO" checked onchange="filtrarRetornos()">
-                                    <label class="form-check-label text-danger fw-bold" for="chkRetNao">NÃO</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="chkRetOk" value="OK" checked onchange="filtrarRetornos()">
-                                    <label class="form-check-label text-secondary fw-bold" for="chkRetOk">OK</label>
-                                </div>
+            <!-- ========================================== -->
+            <!-- SEÇÃO 3: RETORNOS (VINCULADO AO ENVIO)     -->
+            <!-- ========================================== -->
+            <div id="secao-retornos" class="d-none">
+                <!-- Painel Admin Retornos -->
+                <div class="row g-3 mb-4 d-none admin-panel">
+                    <div class="col-lg-3">
+                        <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Importar Retornos</h5>
+                                <p class="text-muted small mb-3">Importa diretamente a guia de Retornos do Excel (colunas A até L).</p>
                             </div>
-                        </div>"""
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilhaRetornos').click();">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> Planilha Retornos (.xlsx)
+                                </button>
+                                <input type="file" id="inputPlanilhaRetornos" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilhaRetornos(event)">
+                                <button class="btn btn-outline-danger btn-sm w-100 fw-semibold" onclick="limparBanco('retornos')">
+                                    <i class="fas fa-trash-alt me-1"></i> Limpar Todos Retornos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-old_ret_search = """                        <div class="col-md-5">
-                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
-                            <input type="text" id="searchRetorno" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
-                        </div>"""
+                    <div class="col-lg-9">
+                        <div class="card p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="card-title text-warning mb-0" id="formTituloRet"><i class="fas fa-exchange-alt me-2"></i>Lançar / Editar Retorno de Peça</h5>
+                                <span class="badge bg-info text-dark">Puxa dados automático pela O.S.</span>
+                            </div>
+                            <form id="formNovoRetorno" class="row g-2">
+                                <input type="hidden" id="editIndexRet" value="-1">
+                                
+                                <!-- Busca Rápida por O.S. Digitando -->
+                                <div class="col-12 col-md-4">
+                                    <input type="text" id="retInputOsBusca" class="form-control form-control-sm border-warning" list="listaOsEnvios" placeholder="Digite ou selecione a O.S..." oninput="verificarBuscaOsEnvio(this.value)" autocomplete="off">
+                                    <datalist id="listaOsEnvios"></datalist>
+                                    <div class="form-text text-warning" style="font-size: 0.72rem;">Digite a O.S. para preencher automático</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="retOs" class="form-control form-control-sm" placeholder="O.S." required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Ordem de Serviço</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="retDataPed" class="form-control form-control-sm" placeholder="DD/MM/AA">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data do retorno</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <input type="text" id="retPedido" class="form-control form-control-sm" placeholder="Nº Pedido/Coleta">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nº Pedido de retorno</div>
+                                </div>
 
-new_ret_search = """                        <div class="col-md-4">
-                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
-                            <input type="text" id="searchRetorno" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
-                        </div>"""
+                                <!-- Campos espelhados do Envio -->
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="retTecnico" class="form-control form-control-sm" placeholder="Técnico" required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Técnico responsável</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="retDtForno" class="form-control form-control-sm" placeholder="DD/MM/AA">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data referência</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="retNf" class="form-control form-control-sm" placeholder="NF">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nota Fiscal</div>
+                                </div>
+                                <div class="col-6 col-md-5">
+                                    <input type="text" id="retModelo" class="form-control form-control-sm" placeholder="Modelo do Equipamento">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Modelo do forno</div>
+                                </div>
 
-assert old_env_filter_block in code, "old_env_filter_block não encontrado"
-assert old_ret_filter_block in code, "old_ret_filter_block não encontrado"
-assert old_env_search in code, "old_env_search não encontrado"
-assert old_ret_search in code, "old_ret_search não encontrado"
+                                <div class="col-12 col-md-6">
+                                    <input type="text" id="retCliente" class="form-control form-control-sm" placeholder="Cliente" required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nome do cliente</div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <input type="text" id="retPecas" class="form-control form-control-sm" placeholder="Peças" required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Peças em retorno</div>
+                                </div>
 
-code = code.replace(old_env_search, new_env_search)
-code = code.replace(old_env_filter_block, new_env_filter_block)
-code = code.replace(old_ret_search, new_ret_search)
-code = code.replace(old_ret_filter_block, new_ret_filter_block)
-
-# 3. Atualizar a lógica JS de renderizarTabelaLogistica
-old_js_filter = """            const statusSel = document.getElementById(isEnvio ? 'filterEnvStatus' : 'filterRetStatus').value;
-
-            const filtrados = lista.filter(item => {
-                const matchTexto = 
-                    (item.os || '').toLowerCase().includes(termo) ||
-                    (item.cliente || '').toLowerCase().includes(termo) ||
-                    (item.tecnico || '').toLowerCase().includes(termo) ||
-                    (item.pecas || '').toLowerCase().includes(termo) ||
-                    (item.rastreio || '').toLowerCase().includes(termo) ||
-                    (item.nf || '').toLowerCase().includes(termo);
-                const matchTec = tecSel === '' || item.tecnico === tecSel;
-                const statusItem = normalizar(item.chegou) || 'SIM';
-                const matchStatus = statusSel === '' || statusItem === statusSel;
-                return matchTexto && matchTec && matchStatus;
-            });"""
-
-new_js_filter = """            const prefixo = isEnvio ? 'chkEnv' : 'chkRet';
-            const statusPermitidos = [];
-            if (document.getElementById(`${prefixo}Sim`).checked) statusPermitidos.push('SIM');
-            if (document.getElementById(`${prefixo}Nao`).checked) {
-                statusPermitidos.push('NAO');
-                statusPermitidos.push('NÃO');
-            }
-            if (document.getElementById(`${prefixo}Ok`).checked) statusPermitidos.push('OK');
-
-            const filtrados = lista.filter(item => {
-                const matchTexto = 
-                    (item.os || '').toLowerCase().includes(termo) ||
-                    (item.cliente || '').toLowerCase().includes(termo) ||
-                    (item.tecnico || '').toLowerCase().includes(termo) ||
-                    (item.pecas || '').toLowerCase().includes(termo) ||
-                    (item.rastreio || '').toLowerCase().includes(termo) ||
-                    (item.nf || '').toLowerCase().includes(termo);
-                const matchTec = tecSel === '' || item.tecnico === tecSel;
-                const statusItem = normalizar(item.chegou) || 'SIM';
-                const matchStatus = statusPermitidos.includes(statusItem);
-                return matchTexto && matchTec && matchStatus;
-            });"""
-
-assert old_js_filter in code, "old_js_filter não encontrado"
-code = code.replace(old_js_filter, new_js_filter)
-
-# 4. Expor filtrarEnvios e filtrarRetornos no objeto window para o onchange inline funcionar
-code = code.replace("function filtrarEnvios() { renderizarTabelaLogistica('envios'); }", "window.filtrarEnvios = function() { renderizarTabelaLogistica('envios'); };")
-code = code.replace("function filtrarRetornos() { renderizarTabelaLogistica('retornos'); }", "window.filtrarRetornos = function() { renderizarTabelaLogistica('retornos'); };")
-
-# 5. Atualizar listeners de limpar filtros e remover event listeners antigos de filterEnvStatus/filterRetStatus
-old_listeners = """        document.getElementById('searchEnvio').addEventListener('input', filtrarEnvios);
-        document.getElementById('filterEnvTecnico').addEventListener('change', filtrarEnvios);
-        document.getElementById('filterEnvStatus').addEventListener('change', filtrarEnvios);
-        document.getElementById('btnLimparFiltroEnv').addEventListener('click', () => {
-            document.getElementById('searchEnvio').value = '';
-            document.getElementById('filterEnvTecnico').value = '';
-            document.getElementById('filterEnvStatus').value = '';
-            filtrarEnvios();
-        });
-
-        document.getElementById('searchRetorno').addEventListener('input', filtrarRetornos);
-        document.getElementById('filterRetTecnico').addEventListener('change', filtrarRetornos);
-        document.getElementById('filterRetStatus').addEventListener('change', filtrarRetornos);
-        document.getElementById('btnLimparFiltroRet').addEventListener('click', () => {
-            document.getElementById('searchRetorno').value = '';
-            document.getElementById('filterRetTecnico').value = '';
-            document.getElementById('filterRetStatus').value = '';
-            filtrarRetornos();
-        });"""
-
-new_listeners = """        document.getElementById('searchEnvio').addEventListener('input', filtrarEnvios);
-        document.getElementById('filterEnvTecnico').addEventListener('change', filtrarEnvios);
-        document.getElementById('btnLimparFiltroEnv').addEventListener('click', () => {
-            document.getElementById('searchEnvio').value = '';
-            document.getElementById('filterEnvTecnico').value = '';
-            document.getElementById('chkEnvSim').checked = true;
-            document.getElementById('chkEnvNao').checked = true;
-            document.getElementById('chkEnvOk').checked = true;
-            filtrarEnvios();
-        });
-
-        document.getElementById('searchRetorno').addEventListener('input', filtrarRetornos);
-        document.getElementById('filterRetTecnico').addEventListener('change', filtrarRetornos);
-        document.getElementById('btnLimparFiltroRet').addEventListener('click', () => {
-            document.getElementById('searchRetorno').value = '';
-            document.getElementById('filterRetTecnico').value = '';
-            document.getElementById('chkRetSim').checked = true;
-            document.getElementById('chkRetNao').checked = true;
-            document.getElementById('chkRetOk').checked = true;
-            filtrarRetornos();
-        });"""
-
-assert old_listeners in code, "old_listeners não encontrado"
-code = code.replace(old_listeners, new_listeners)
-
-# Também corrigir prepararEdicaoEnv, prepararEdicaoRet e gerarRetorno no formNovoEnvio para usar SIM/NAO/OK em vez de PENDENTE
-code = code.replace("chegou: 'PENDENTE'", "chegou: 'SIM'")
-code = code.replace("normalizar(item.chegou) === 'OK' ? 'OK' : 'PENDENTE'", "(normalizar(item.chegou) === 'NAO' || normalizar(item.chegou) === 'NÃO') ? 'NAO' : (normalizar(item.chegou) === 'OK' ? 'OK' : 'SIM')")
-
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(code)
-
-print("Checkboxes de filtro implementados com sucesso!")
-
-
-```
-
-```text
-Checkboxes de filtro implementados com sucesso!
-
-
-```
-
-Substituí a lista suspensa de filtro por **caixas de marcação (checkboxes)** individuais para **SIM**, **NÃO** e **OK** nas abas **Envios** e **Retornos**:
-
-* **Visualização combinada**: Você pode marcar ou desmarcar livremente qualquer combinação (por exemplo, visualizar apenas **SIM** e **NÃO** juntos, ocultando os já finalizados em **OK**).
-* **Identificação por cor**: Cada caixa segue as mesmas cores dos badges (**SIM** em verde, **NÃO** em vermelho e **OK** em cinza).
-* **Botão Limpar**: Ao clicar em **Limpar**, todas as três caixas voltam a ficar marcadas automaticamente.
+                                <!-- Campos de Logística do Retorno -->
+                                <div class="col-6 col-md-5">
+                                    <input type="text" id="retRastreio" class="form-control form-control-sm" placeholder="Código Correios / Transportadora">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Rastreio ou transportadora</div>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <input type="text" id="retPrevisao" class="form-control form-control-sm" placeholder="DD/MM/AA ou ?">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Previsão de chegada</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <select id="retChegou" class="form-select form-select-sm">
+                                        <option value="SIM">SIM</option>
+                                        <option value="NA

@@ -545,4 +545,614 @@
                                 <div class="col-12 col-md-3">
                                     <select id="retChegou" class="form-select form-select-sm">
                                         <option value="SIM">SIM</option>
-                                        <option value="NA
+                                        <option value="NAO">NÃO</option>
+                                        <option value="OK">OK</option>
+                                    </select>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
+                                </div>
+
+                                <div class="col-12 mt-2 d-flex gap-2">
+                                    <button type="submit" id="btnSalvarRet" class="btn btn-warning text-dark fw-semibold btn-sm flex-grow-1"><i class="fas fa-save me-1"></i> Salvar Retorno</button>
+                                    <button type="button" id="btnLimparRet" class="btn btn-outline-light btn-sm px-3" onclick="cancelarEdicaoRet()" title="Limpa todos os campos do formulário"><i class="fas fa-eraser me-1"></i> Limpar Dados</button>
+                                    <button type="button" id="btnCancelarRet" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicaoRet()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Retornos -->
+                <div class="card p-3 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchRetorno" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-user-cog me-1"></i> Filtrar Técnico</label>
+                            <select id="filterRetTecnico" class="form-select">
+                                <option value="">Todos os Técnicos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <div class="d-flex flex-wrap gap-3 pt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetSim" value="SIM" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-success fw-bold" for="chkRetSim">SIM</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetNao" value="NAO" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-danger fw-bold" for="chkRetNao">NÃO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetOk" value="OK" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-secondary fw-bold" for="chkRetOk">OK</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="btnLimparFiltroRet" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela Retornos -->
+                <div class="card p-2 p-md-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>DATA</th>
+                                    <th>TÉCNICO</th>
+                                    <th>DT FORNO</th>
+                                    <th>NF</th>
+                                    <th>MODELO</th>
+                                    <th>PEDIDO</th>
+                                    <th>O.S.</th>
+                                    <th>CLIENTE</th>
+                                    <th>PEÇAS</th>
+                                    <th>RASTREIO</th>
+                                    <th>PREVISÃO</th>
+                                    <th>CHEGOU</th>
+                                    <th class="th-acoes d-none">AÇÕES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRetornos"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 px-2">
+                        <span class="text-muted small" id="contadorRetornos">Carregando dados...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Senhas do sistema
+        const SENHA_ACESSO = "1307"; 
+        const SENHA_ADMIN = "6101";  
+
+        let db = null;
+        let dadosTecnicos = [];
+        let dadosEnvios = [];
+        let dadosRetornos = [];
+        let isAdmin = false;
+        let modalAdmin = null;
+        let abaAtual = 'tecnicos';
+
+        // ==========================================
+        // AUTENTICAÇÃO E INICIALIZAÇÃO
+        // ==========================================
+        document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const digitada = document.getElementById('inputSenhaInicial').value.trim();
+
+            if (digitada === SENHA_ACESSO) {
+                document.getElementById('telaBloqueio').classList.add('d-none');
+                document.getElementById('conteudoSistema').classList.remove('d-none');
+                modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
+
+                const firebaseConfig = {
+                    apiKey: "AIzaSyC2LafGVK50k7uMmNPz7Hw9X9Ozhtoozk",
+                    authDomain: "sistematecnicos-e1e6e.firebaseapp.com",
+                    projectId: "sistematecnicos-e1e6e",
+                    storageBucket: "sistematecnicos-e1e6e.appspot.com",
+                    messagingSenderId: "990062939383",
+                    appId: "1:990062939383:web:893deafebae20e26ce57f2"
+                };
+
+                const app = initializeApp(firebaseConfig);
+                db = getDatabase(app);
+                iniciarEscutaFirebase();
+            } else {
+                document.getElementById('msgErroLogin').classList.remove('d-none');
+                document.getElementById('inputSenhaInicial').value = '';
+                document.getElementById('inputSenhaInicial').focus();
+            }
+        });
+
+        window.alternarModoAdmin = function() {
+            if (!isAdmin) {
+                document.getElementById('inputSenhaAdmin').value = '';
+                document.getElementById('msgErroAdmin').classList.add('d-none');
+                modalAdmin.show();
+                setTimeout(() => document.getElementById('inputSenhaAdmin').focus(), 400);
+            } else {
+                isAdmin = false;
+                document.getElementById('iconeAdmin').className = "fas fa-lock me-1";
+                document.getElementById('textoAdmin').textContent = "Modo Admin (Bloqueado)";
+                document.getElementById('btnAdminToggle').className = "btn btn-warning btn-sm fw-semibold text-dark";
+                document.querySelectorAll('.admin-panel').forEach(el => el.classList.add('d-none'));
+                document.querySelectorAll('.th-acoes').forEach(el => el.classList.add('d-none'));
+                cancelarEdicaoTec();
+                cancelarEdicaoEnv();
+                cancelarEdicaoRet();
+                renderizarTudo();
+            }
+        };
+
+        document.getElementById('formLoginAdmin').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const digitada = document.getElementById('inputSenhaAdmin').value.trim();
+
+            if (digitada === SENHA_ADMIN) {
+                isAdmin = true;
+                modalAdmin.hide();
+                document.getElementById('iconeAdmin').className = "fas fa-lock-open me-1";
+                document.getElementById('textoAdmin').textContent = "Admin Ativo";
+                document.getElementById('btnAdminToggle').className = "btn btn-success btn-sm fw-semibold text-white";
+                document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('d-none'));
+                document.querySelectorAll('.th-acoes').forEach(el => el.classList.remove('d-none'));
+                renderizarTudo();
+            } else {
+                document.getElementById('msgErroAdmin').classList.remove('d-none');
+                document.getElementById('inputSenhaAdmin').value = '';
+                document.getElementById('inputSenhaAdmin').focus();
+            }
+        });
+
+        window.trocarAba = function(aba) {
+            abaAtual = aba;
+            ['tecnicos', 'envios', 'retornos'].forEach(nome => {
+                document.getElementById(`tab-${nome}`).classList.toggle('active', nome === aba);
+                document.getElementById(`secao-${nome}`).classList.toggle('d-none', nome !== aba);
+            });
+        };
+
+        // ==========================================
+        // FIREBASE REALTIME DATABASE
+        // ==========================================
+        function iniciarEscutaFirebase() {
+            onValue(ref(db, 'tecnicos'), (snapshot) => {
+                dadosTecnicos = snapshot.val() || [];
+                atualizarDropdownEstados();
+                filtrarTecnicos();
+            });
+
+            onValue(ref(db, 'envios'), (snapshot) => {
+                dadosEnvios = snapshot.val() || [];
+                atualizarDropdownTecnicos('envios');
+                atualizarSelectOsEnvio();
+                filtrarEnvios();
+            });
+
+            onValue(ref(db, 'retornos'), (snapshot) => {
+                dadosRetornos = snapshot.val() || [];
+                atualizarDropdownTecnicos('retornos');
+                filtrarRetornos();
+            });
+        }
+
+        function salvarNoFirebase(caminho, dados) {
+            set(ref(db, caminho), dados).catch((err) => {
+                console.error(`Erro ao salvar em ${caminho}:`, err);
+                alert("Erro ao salvar na nuvem. Verifique sua conexão.");
+            });
+        }
+
+        window.limparBanco = function(caminho) {
+            if (!isAdmin) return;
+            const nomes = { tecnicos: 'Técnicos', envios: 'Envios', retornos: 'Retornos' };
+            if (confirm(`Tem certeza que deseja apagar TODOS os registros de ${nomes[caminho]} da nuvem?`)) {
+                salvarNoFirebase(caminho, []);
+            }
+        };
+
+        function renderizarTudo() {
+            filtrarTecnicos();
+            filtrarEnvios();
+            filtrarRetornos();
+        }
+
+        // ==========================================
+        // AUXILIARES DE FORMATAÇÃO EXCEL
+        // ==========================================
+        function normalizar(txt) {
+            return String(txt || '').trim().toUpperCase();
+        }
+
+        function formatarCelulaExcel(val, isData = false) {
+            if (val === undefined || val === null || String(val).trim() === '') return '-';
+            if (isData && typeof val === 'number' && val > 20000 && val < 80000) {
+                const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+                const d = String(date.getUTCDate()).padStart(2, '0');
+                const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const y = String(date.getUTCFullYear()).slice(-2);
+                return `${d}/${m}/${y}`;
+            }
+            return String(val).trim();
+        }
+
+        // ==========================================
+        // MÓDULO 1: TÉCNICOS
+        // ==========================================
+        function padronizarUF(val) {
+            const s = normalizar(val);
+            if (s.length === 2) return s;
+            const ufs = { 'SAO PAULO': 'SP', 'RIO DE JANEIRO': 'RJ', 'MINAS GERAIS': 'MG', 'PARANA': 'PR', 'SANTA CATARINA': 'SC', 'RIO GRANDE DO SUL': 'RS', 'BAHIA': 'BA', 'CEARA': 'CE', 'PARA': 'PA', 'AMAZONAS': 'AM', 'GOIAS': 'GO', 'DISTRITO FEDERAL': 'DF', 'MATO GROSSO': 'MT', 'MATO GROSSO DO SUL': 'MS', 'ALAGOAS': 'AL', 'RIO GRANDE DO NORTE': 'RN', 'PARAIBA': 'PB', 'PERNAMBUCO': 'PE', 'ESPIRITO SANTO': 'ES', 'TOCANTINS': 'TO', 'PIAUÍ': 'PI', 'AMAPA': 'AP', 'RORAIMA': 'RR', 'ACRE': 'AC', 'RONDONIA': 'RO', 'SERGIPE': 'SE' };
+            return ufs[s] || s || '-';
+        }
+
+        function padronizarTipo(val, banco = '') {
+            const s = normalizar(val);
+            if (s.includes('PJ') || s.includes('JURIDICA') || s.includes('CNPJ')) return 'PJ';
+            if (s.includes('PF') || s.includes('FISICA') || s.includes('CPF')) return 'PF';
+            const b = normalizar(banco);
+            if (b.includes('/') || b.length > 20) return 'PJ';
+            return 'PJ';
+        }
+
+        function atualizarDropdownEstados() {
+            const filterEstado = document.getElementById('filterEstado');
+            const valorAtual = filterEstado.value;
+            const estadosUnicos = [...new Set(dadosTecnicos.map(i => i.estado).filter(uf => uf && uf !== '-'))].sort();
+            filterEstado.innerHTML = '<option value="">Todos os Estados</option>';
+            estadosUnicos.forEach(uf => {
+                const opt = document.createElement('option');
+                opt.value = uf;
+                opt.textContent = uf;
+                filterEstado.appendChild(opt);
+            });
+            if (estadosUnicos.includes(valorAtual)) filterEstado.value = valorAtual;
+        }
+
+        function filtrarTecnicos() {
+            const termo = document.getElementById('searchNome').value.toLowerCase().trim();
+            const tipoSel = document.getElementById('filterTipo').value;
+            const estadoSel = document.getElementById('filterEstado').value;
+
+            const filtrados = dadosTecnicos.filter(item => {
+                const matchTexto = item.nome.toLowerCase().includes(termo) || item.empresa.toLowerCase().includes(termo) || item.banco.toLowerCase().includes(termo) || item.cidade.toLowerCase().includes(termo);
+                const matchTipo = tipoSel === "" || item.tipo === tipoSel;
+                const matchEstado = estadoSel === "" || item.estado === estadoSel;
+                return matchTexto && matchTipo && matchEstado;
+            });
+
+            const tbody = document.getElementById('tbodyTecnicos');
+            tbody.innerHTML = '';
+            const colspanTotal = isAdmin ? 10 : 9;
+
+            if (filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${colspanTotal}" class="text-center py-4 text-muted">Nenhum técnico encontrado.</td></tr>`;
+                document.getElementById('contadorTecnicos').textContent = dadosTecnicos.length === 0 ? 'Nenhum técnico cadastrado' : `0 de ${dadosTecnicos.length} registros`;
+                return;
+            }
+
+            filtrados.forEach(item => {
+                const idx = dadosTecnicos.indexOf(item);
+                const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
+                const telFormatado = item.tel && item.tel !== '-' 
+                    ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
+                    : '-';
+
+                const tdAcoes = isAdmin 
+                    ? `<td class="text-nowrap">
+                         <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicaoTec(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-outline-danger btn-sm" onclick="removerItem('tecnicos', ${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                       </td>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold">${item.nome}</td>
+                    <td>${item.empresa}</td>
+                    <td class="small" style="color: #adb5bd !important;">${item.banco}</td>
+                    <td><span class="badge ${badgeClass}">${item.tipo}</span></td>
+                    <td>${item.cidade}</td>
+                    <td><span class="badge bg-secondary badge-estado">${item.estado}</span></td>
+                    <td class="fw-semibold text-success">${item.fat}</td>
+                    <td style="color: #adb5bd !important;">${item.envio}</td>
+                    <td>${telFormatado}</td>
+                    ${tdAcoes}
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('contadorTecnicos').textContent = `Mostrando ${filtrados.length} de ${dadosTecnicos.length} técnicos`;
+        }
+
+        window.prepararEdicaoTec = function(idx) {
+            if (!isAdmin) return;
+            const item = dadosTecnicos[idx];
+            document.getElementById('editIndexTec').value = idx;
+            document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
+            document.getElementById('novaEmpresa').value = item.empresa !== '-' ? item.empresa : '';
+            document.getElementById('novoBanco').value = item.banco !== '-' ? item.banco : '';
+            document.getElementById('novoTipo').value = item.tipo === 'PF' ? 'PF' : 'PJ';
+            document.getElementById('novaCidade').value = item.cidade !== '-' ? item.cidade : '';
+            document.getElementById('novoEstado').value = item.estado !== '-' ? item.estado : '';
+            document.getElementById('novoTel').value = item.tel !== '-' ? item.tel : '';
+            document.getElementById('novoFat').value = item.fat !== '-' ? item.fat : '';
+            document.getElementById('novoEnvio').value = item.envio !== '-' ? item.envio : '';
+
+            document.getElementById('formTituloTec').innerHTML = `<i class="fas fa-user-edit me-2"></i>Editar Técnico (#${idx + 1})`;
+            document.getElementById('btnSalvarTec').innerHTML = `<i class="fas fa-save me-1"></i> Salvar Alterações`;
+            document.getElementById('btnCancelarTec').classList.remove('d-none');
+            document.getElementById('formNovoTecnico').scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.cancelarEdicaoTec = function() {
+            document.getElementById('editIndexTec').value = '-1';
+            document.getElementById('formNovoTecnico').reset();
+            document.getElementById('formTituloTec').innerHTML = `<i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico`;
+            document.getElementById('btnSalvarTec').innerHTML = `<i class="fas fa-save me-1"></i> Adicionar Técnico`;
+            document.getElementById('btnCancelarTec').classList.add('d-none');
+        };
+
+        document.getElementById('formNovoTecnico').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!isAdmin) return;
+            const editIdx = parseInt(document.getElementById('editIndexTec').value);
+            const banco = document.getElementById('novoBanco').value.trim();
+
+            const obj = {
+                nome: document.getElementById('novoNome').value.trim().toUpperCase(),
+                empresa: document.getElementById('novaEmpresa').value.trim().toUpperCase(),
+                banco: banco,
+                tipo: padronizarTipo(document.getElementById('novoTipo').value, banco),
+                cidade: document.getElementById('novaCidade').value.trim().toUpperCase(),
+                estado: padronizarUF(document.getElementById('novoEstado').value),
+                fat: document.getElementById('novoFat').value.trim() || '-',
+                envio: document.getElementById('novoEnvio').value.trim() || '-',
+                tel: document.getElementById('novoTel').value.trim() || '-'
+            };
+
+            if (editIdx >= 0) {
+                dadosTecnicos[editIdx] = obj;
+                cancelarEdicaoTec();
+            } else {
+                dadosTecnicos.unshift(obj);
+                this.reset();
+            }
+            salvarNoFirebase('tecnicos', dadosTecnicos);
+        });
+
+        function extrairListaTecnicos(worksheet) {
+            const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ''});
+            let startRow = 0;
+            for (let i = 0; i < Math.min(10, rows.length); i++) {
+                const rowStr = rows[i].map(c => normalizar(c)).join(' ');
+                if (rowStr.includes('NOME') || rowStr.includes('EMPRESA')) { startRow = i + 1; break; }
+            }
+            if (startRow === 0 && rows.length > 1) startRow = 1;
+
+            const lista = [];
+            for (let r = startRow; r < rows.length; r++) {
+                const row = rows[r];
+                if (!row || row.length === 0) continue;
+                const nome = formatarCelulaExcel(row[0]);
+                const empresa = formatarCelulaExcel(row[1]);
+                if (nome === '-' && empresa === '-') continue;
+                if (normalizar(nome) === 'NOME' || normalizar(nome) === 'TECNICO' || normalizar(nome) === 'TÉCNICO') continue;
+
+                const banco = formatarCelulaExcel(row[2]);
+                lista.push({
+                    nome: nome.toUpperCase(),
+                    empresa: empresa.toUpperCase(),
+                    banco: banco,
+                    tipo: padronizarTipo(formatarCelulaExcel(row[3]), banco),
+                    cidade: formatarCelulaExcel(row[4]).toUpperCase(),
+                    estado: padronizarUF(formatarCelulaExcel(row[5])),
+                    fat: formatarCelulaExcel(row[6]),
+                    envio: formatarCelulaExcel(row[7]),
+                    tel: formatarCelulaExcel(row[8])
+                });
+            }
+            return lista;
+        }
+
+        window.processarPlanilhaTecnicos = function(e) {
+            if (!isAdmin) return;
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                    const sheetName = workbook.SheetNames.find(n => normalizar(n).includes('TECNICO') || normalizar(n).includes('TÉCNICO') || normalizar(n).includes('CONTA')) || workbook.SheetNames[0];
+                    const lista = extrairListaTecnicos(workbook.Sheets[sheetName]);
+                    if (lista.length > 0) {
+                        salvarNoFirebase('tecnicos', lista);
+                        alert(`Sucesso! ${lista.length} técnicos importados da guia "${sheetName}".`);
+                    } else {
+                        alert("Nenhum técnico válido encontrado na planilha.");
+                    }
+                } catch (err) {
+                    alert("Erro ao ler o arquivo. Verifique se a planilha não está protegida com senha.");
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // ==========================================
+        // MÓDULO 2 & 3: ENVIOS E RETORNOS (A até L)
+        // ==========================================
+        function atualizarDropdownTecnicos(tipo) {
+            const lista = tipo === 'envios' ? dadosEnvios : dadosRetornos;
+            const select = document.getElementById(tipo === 'envios' ? 'filterEnvTecnico' : 'filterRetTecnico');
+            const atual = select.value;
+            const tecs = [...new Set(lista.map(i => i.tecnico).filter(t => t && t !== '-'))].sort();
+            select.innerHTML = '<option value="">Todos os Técnicos</option>';
+            tecs.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                select.appendChild(opt);
+            });
+            if (tecs.includes(atual)) select.value = atual;
+        }
+
+        function atualizarSelectOsEnvio() {
+            const datalist = document.getElementById('listaOsEnvios');
+            datalist.innerHTML = '';
+            dadosEnvios.forEach((env, idx) => {
+                if (env.os && env.os !== '-') {
+                    const opt = document.createElement('option');
+                    opt.value = env.os;
+                    opt.textContent = `${env.tecnico} - Cliente: ${env.cliente}`;
+                    datalist.appendChild(opt);
+                }
+            });
+        }
+
+        // Preenche automaticamente quando o usuário digita ou seleciona a O.S.
+        window.verificarBuscaOsEnvio = function(valorDigitado) {
+            const osBusca = valorDigitado.trim().toUpperCase();
+            const env = dadosEnvios.find(e => e.os && e.os.toUpperCase() === osBusca);
+            if (env) {
+                document.getElementById('retTecnico').value = env.tecnico !== '-' ? env.tecnico : '';
+                document.getElementById('retDtForno').value = env.dtForno !== '-' ? env.dtForno : '';
+                document.getElementById('retNf').value = env.nf !== '-' ? env.nf : '';
+                document.getElementById('retModelo').value = env.modelo !== '-' ? env.modelo : '';
+                document.getElementById('retOs').value = env.os !== '-' ? env.os : '';
+                document.getElementById('retCliente').value = env.cliente !== '-' ? env.cliente : '';
+                document.getElementById('retPecas').value = env.pecas !== '-' ? env.pecas : '';
+            }
+        };
+
+        function renderizarTabelaLogistica(tipo) {
+            const isEnvio = tipo === 'envios';
+            const lista = isEnvio ? dadosEnvios : dadosRetornos;
+            const termo = document.getElementById(isEnvio ? 'searchEnvio' : 'searchRetorno').value.toLowerCase().trim();
+            const tecSel = document.getElementById(isEnvio ? 'filterEnvTecnico' : 'filterRetTecnico').value;
+            const prefixo = isEnvio ? 'chkEnv' : 'chkRet';
+            const statusPermitidos = [];
+            if (document.getElementById(`${prefixo}Sim`).checked) statusPermitidos.push('SIM');
+            if (document.getElementById(`${prefixo}Nao`).checked) {
+                statusPermitidos.push('NAO');
+                statusPermitidos.push('NÃO');
+            }
+            if (document.getElementById(`${prefixo}Ok`).checked) statusPermitidos.push('OK');
+
+            const filtrados = lista.filter(item => {
+                const matchTexto = 
+                    (item.os || '').toLowerCase().includes(termo) ||
+                    (item.cliente || '').toLowerCase().includes(termo) ||
+                    (item.tecnico || '').toLowerCase().includes(termo) ||
+                    (item.pecas || '').toLowerCase().includes(termo) ||
+                    (item.rastreio || '').toLowerCase().includes(termo) ||
+                    (item.nf || '').toLowerCase().includes(termo);
+                const matchTec = tecSel === '' || item.tecnico === tecSel;
+                const statusItem = normalizar(item.chegou) || 'SIM';
+                const matchStatus = statusPermitidos.includes(statusItem);
+                return matchTexto && matchTec && matchStatus;
+            });
+
+            const tbody = document.getElementById(isEnvio ? 'tbodyEnvios' : 'tbodyRetornos');
+            tbody.innerHTML = '';
+            const colspanTotal = isAdmin ? 13 : 12;
+
+            if (filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${colspanTotal}" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>`;
+                document.getElementById(isEnvio ? 'contadorEnvios' : 'contadorRetornos').textContent = lista.length === 0 ? 'Nenhum registro cadastrado' : `0 de ${lista.length} registros`;
+                return;
+            }
+
+            filtrados.forEach(item => {
+                const idx = lista.indexOf(item);
+                const st = normalizar(item.chegou) || 'SIM';
+                let badgeClass = 'bg-success';
+                if (st === 'NAO' || st === 'NÃO') badgeClass = 'bg-danger';
+                else if (st === 'OK') badgeClass = 'bg-secondary';
+                const badgeStatus = `<span class="badge ${badgeClass}">${st}</span>`;
+
+                const fnEdit = isEnvio ? `prepararEdicaoEnv(${idx})` : `prepararEdicaoRet(${idx})`;
+                const fnToggle = `alternarStatusChegou('${tipo}', ${idx})`;
+                const tdAcoes = isAdmin 
+                    ? `<td class="text-nowrap">
+                         <button class="btn btn-outline-success btn-sm me-1" onclick="${fnToggle}" title="Alternar SIM / NÃO / OK"><i class="fas fa-check"></i></button>
+                         <button class="btn btn-outline-primary btn-sm me-1" onclick="${fnEdit}" title="Editar"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-outline-danger btn-sm" onclick="removerItem('${tipo}', ${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                       </td>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.dataPed}</td>
+                    <td class="fw-bold text-info">${item.tecnico}</td>
+                    <td>${item.dtForno}</td>
+                    <td>${item.nf}</td>
+                    <td>${item.modelo}</td>
+                    <td>${item.pedido}</td>
+                    <td class="fw-bold text-warning">${item.os}</td>
+                    <td>${item.cliente}</td>
+                    <td class="fw-semibold">${item.pecas}</td>
+                    <td class="small" style="color: #adb5bd !important;">${item.rastreio}</td>
+                    <td>${item.previsao}</td>
+                    <td>${badgeStatus}</td>
+                    ${tdAcoes}
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById(isEnvio ? 'contadorEnvios' : 'contadorRetornos').textContent = `Mostrando ${filtrados.length} de ${lista.length} registros`;
+        }
+
+        window.filtrarEnvios = function() { renderizarTabelaLogistica('envios'); };
+        window.filtrarRetornos = function() { renderizarTabelaLogistica('retornos'); };
+
+        window.alternarStatusChegou = function(tipo, idx) {
+            if (!isAdmin) return;
+            const lista = tipo === 'envios' ? dadosEnvios : dadosRetornos;
+            const atual = normalizar(lista[idx].chegou);
+            let proximo = 'NAO';
+            if (atual === 'SIM') proximo = 'NAO';
+            else if (atual === 'NAO' || atual === 'NÃO') proximo = 'OK';
+            else proximo = 'SIM';
+            lista[idx].chegou = proximo;
+            salvarNoFirebase(tipo, lista);
+        };
+
+        window.removerItem = function(tipo, idx) {
+            if (!isAdmin) return;
+            if (confirm("Deseja realmente excluir este registro?")) {
+                const lista = tipo === 'tecnicos' ? dadosTecnicos : (tipo === 'envios' ? dadosEnvios : dadosRetornos);
+                lista.splice(idx, 1);
+                salvarNoFirebase(tipo, lista);
+            }
+        };
+
+        // Formulário de Envios
+        window.prepararEdicaoEnv = function(idx) {
+            if (!isAdmin) return;
+            const item = dadosEnvios[idx];
+            document.getElementById('editIndexEnv').value = idx;
+            document.getElementById('envDataPed').value = item.dataPed !== '-' ? item.dataPed : '';
+            document.getElementById('envTecnico').value = item.tecnico !== '-' ? item.tecnico : '';
+            document.getElementById('envDtForno').value = item.dtForno !== '-' ? item.dtForno : '';
+            document.getElementById('envNf').value = item.nf !== '-' ? item.nf : '';
+            document.getElementById('envModelo').value = item.modelo !== '-' ? item.modelo : '';
+            document.getElementById('envPedido').value = item.pedido !== '-' ? item.pedido : '';
+            document.getElementById('envOs').value = item.os !== '-' ? item.os : '';
+            document.getElementById('envCliente').value = item.cliente !== '-' ? item.cliente : '';
+            document.getElementById('envPecas').value = item.pecas !== '-' ? item.pecas : '';
+            document.getElementById('envRastreio').value = item.rastreio !== '-' ? item.rastreio : '';
+            document.getElementById('envPrevisao').value = item.previsao !== '-' ? item.previsao : '';
+            document.getElementById('envChegou').value = (normalizar(item.chegou) === 'NAO' || normalizar(item.chegou) === 'NÃO') ? 'NAO' : (normalizar(item.chegou) === 'OK' ? 'OK' : 'SIM');
+            document.getElement

@@ -1,4 +1,31 @@
-<!DOCTYPE html>
+```python
+with open("index_3.html", "r", encoding="utf-8") as f:
+    content = f.read()
+
+# Fix the escaping bug that happened in the previous generation:
+# In the previous file: const codEscapado = cod.replace(/\/g, '\\').replace(/'/g, "\'");
+# In JS regex, /\/g is a syntax error because \/ escapes the slash and never closes the regex!
+# Also tel.replace(/\D/g, '') became tel.replace(\D/g, '') in some places or check all backslashes.
+
+print("Checking regexes in index_3.html:")
+for i, line in enumerate(content.splitlines(), 1):
+    if "replace(" in line:
+        print(f"Line {i}: {line.strip()}")
+
+
+```
+
+```text
+Traceback (most recent call last):
+  File "<xbox-string>", line 1, in <module>
+    with open("index_3.html", "r", encoding="utf-8") as f:
+FileNotFoundError: [Errno 2] No such file or directory: 'index_3.html'
+
+
+```
+
+```python
+html_code = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -1036,6 +1063,31 @@
             }
         };
 
+        window.copiarRastreio = function(texto) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texto).catch(() => {});
+            }
+        };
+
+        function formatarLinkRastreio(rastreio) {
+            const cod = String(rastreio || '').trim();
+            if (!cod || cod === '-' || cod === '?') {
+                return `<span style="color: #adb5bd !important;">${cod || '-'}</span>`;
+            }
+            const urlCorreios = "https://rastreamento.correios.com.br/app/index.php";
+            const codSeguroAttr = cod.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            const codSeguroHtml = cod.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `
+                <a href="${urlCorreios}" target="_blank" rel="noopener noreferrer"
+                   data-cod="${codSeguroAttr}"
+                   onclick="copiarRastreio(this.dataset.cod)"
+                   class="text-decoration-none text-info fw-semibold"
+                   title="Abrir Correios e copiar código ${codSeguroAttr}">
+                    <i class="fas fa-external-link-alt me-1 small"></i>${codSeguroHtml}
+                </a>
+            `;
+        }
+
         function renderizarTabelaLogistica(tipo) {
             const isEnvio = tipo === 'envios';
             const lista = isEnvio ? dadosEnvios : dadosRetornos;
@@ -1103,7 +1155,7 @@
                     <td class="fw-bold text-warning">${item.os}</td>
                     <td>${item.cliente}</td>
                     <td class="fw-semibold">${item.pecas}</td>
-                    <td class="small" style="color: #adb5bd !important;">${item.rastreio}</td>
+                    <td class="small">${formatarLinkRastreio(item.rastreio)}</td>
                     <td>${item.previsao}</td>
                     <td>${badgeStatus}</td>
                     ${tdAcoes}
@@ -1489,4 +1541,4 @@
         });
     </script>
 </body>
-</html>
+</html>'''

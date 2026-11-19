@@ -1,30 +1,3 @@
-```python
-with open("index_3.html", "r", encoding="utf-8") as f:
-    content = f.read()
-
-# Fix the escaping bug that happened in the previous generation:
-# In the previous file: const codEscapado = cod.replace(/\/g, '\\').replace(/'/g, "\'");
-# In JS regex, /\/g is a syntax error because \/ escapes the slash and never closes the regex!
-# Also tel.replace(/\D/g, '') became tel.replace(\D/g, '') in some places or check all backslashes.
-
-print("Checking regexes in index_3.html:")
-for i, line in enumerate(content.splitlines(), 1):
-    if "replace(" in line:
-        print(f"Line {i}: {line.strip()}")
-
-
-```
-
-```text
-Traceback (most recent call last):
-  File "<xbox-string>", line 1, in <module>
-    with open("index_3.html", "r", encoding="utf-8") as f:
-FileNotFoundError: [Errno 2] No such file or directory: 'index_3.html'
-
-
-```
-
-```python
 html_code = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>

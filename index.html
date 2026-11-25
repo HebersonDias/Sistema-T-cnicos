@@ -678,7 +678,8 @@
 
         // Senhas do sistema
         const SENHA_ACESSO = "1307"; 
-        const SENHA_ADMIN = "6101";  
+        const SENHA_ADMIN = "6101";
+        const CHAVE_SESSAO_ACESSO = "sistemaTecnicosAcessoLiberado_v1";
 
         let db = null;
         let dadosTecnicos = [];
@@ -691,27 +692,44 @@
         // ==========================================
         // AUTENTICAÇÃO E INICIALIZAÇÃO
         // ==========================================
+        function liberarAcessoSistema() {
+            document.getElementById('telaBloqueio').classList.add('d-none');
+            document.getElementById('conteudoSistema').classList.remove('d-none');
+            modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
+
+            const firebaseConfig = {
+                apiKey: "AIzaSyC2LafGVK50k7uMmNPz7Hw9X9Ozhtoozk",
+                authDomain: "sistematecnicos-e1e6e.firebaseapp.com",
+                projectId: "sistematecnicos-e1e6e",
+                storageBucket: "sistematecnicos-e1e6e.appspot.com",
+                messagingSenderId: "990062939383",
+                appId: "1:990062939383:web:893deafebae20e26ce57f2"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            iniciarEscutaFirebase();
+        }
+
+        // Mantém o acesso neste navegador, inclusive após atualizar a página (F5).
+        // A autorização fica salva até os dados do site serem apagados.
+        try {
+            if (localStorage.getItem(CHAVE_SESSAO_ACESSO) === 'sim') {
+                liberarAcessoSistema();
+            }
+        } catch (erro) {
+            console.warn('Não foi possível recuperar a sessão salva.', erro);
+        }
+
         document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
             e.preventDefault();
             const digitada = document.getElementById('inputSenhaInicial').value.trim();
 
             if (digitada === SENHA_ACESSO) {
-                document.getElementById('telaBloqueio').classList.add('d-none');
-                document.getElementById('conteudoSistema').classList.remove('d-none');
-                modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
-
-                const firebaseConfig = {
-                    apiKey: "AIzaSyC2LafGVK50k7uMmNPz7Hw9X9Ozhtoozk",
-                    authDomain: "sistematecnicos-e1e6e.firebaseapp.com",
-                    projectId: "sistematecnicos-e1e6e",
-                    storageBucket: "sistematecnicos-e1e6e.appspot.com",
-                    messagingSenderId: "990062939383",
-                    appId: "1:990062939383:web:893deafebae20e26ce57f2"
-                };
-
-                const app = initializeApp(firebaseConfig);
-                db = getDatabase(app);
-                iniciarEscutaFirebase();
+                try { localStorage.setItem(CHAVE_SESSAO_ACESSO, 'sim'); } catch (erro) {
+                    console.warn('Não foi possível salvar a sessão neste navegador.', erro);
+                }
+                liberarAcessoSistema();
             } else {
                 document.getElementById('msgErroLogin').classList.remove('d-none');
                 document.getElementById('inputSenhaInicial').value = '';

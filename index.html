@@ -303,7 +303,7 @@
             <div id="secao-localizador" class="d-none">
                 <div class="card p-3 p-md-4 mb-3">
                     <h5 class="text-info mb-2"><i class="fas fa-map-marked-alt me-2"></i>Localizar técnicos próximos</h5>
-                    <p class="text-muted small mb-3">Informe a cidade e o estado do cliente. O sistema calcula distâncias aproximadas entre centros urbanos e organiza os profissionais conforme a regra definida. Serão exibidos somente técnicos em um raio máximo de 300 km.</p>
+                    <p class="text-muted small mb-3">Informe a cidade e o estado do cliente. O sistema calcula a distância estimada por carro entre os centros urbanos e organiza os profissionais pela menor rota. Serão exibidos somente técnicos em até 350 km por estrada.</p>
                     <form id="formLocalizador" class="row g-3">
                         <div class="col-md-6">
                             <label for="cidadeCliente" class="form-label fw-semibold">Cidade do cliente</label>
@@ -838,7 +838,12 @@
             try { return JSON.parse(localStorage.getItem('cacheGeoTecnicosBR') || '{}'); }
             catch (_) { return {}; }
         })();
-        const DISTANCIA_MAXIMA_LOCALIZADOR_KM = 300;
+        const DISTANCIA_MAXIMA_LOCALIZADOR_KM = 350;
+        const URL_SERVICO_ROTAS_LOCALIZADOR = 'https://router.project-osrm.org/table/v1/driving/';
+        const cacheRotasLocalizador = (() => {
+            try { return JSON.parse(localStorage.getItem('cacheRotasTecnicosBR_v1') || '{}'); }
+            catch (_) { return {}; }
+        })();
         // Base pública com coordenadas dos municípios brasileiros: uma única carga, sem geocodificar técnico por técnico.
         const URL_BASE_MUNICIPIOS_BR = 'https://raw.githubusercontent.com/PNLBrasil/Municipios-Brasileiros/master/Municipios_Brasileiros.csv';
         const NOME_ESTADO_GEO = { AC:'Acre', AL:'Alagoas', AP:'Amapá', AM:'Amazonas', BA:'Bahia', CE:'Ceará', DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão', MT:'Mato Grosso', MS:'Mato Grosso do Sul', MG:'Minas Gerais', PA:'Pará', PB:'Paraíba', PR:'Paraná', PE:'Pernambuco', PI:'Piauí', RJ:'Rio de Janeiro', RN:'Rio Grande do Norte', RS:'Rio Grande do Sul', RO:'Rondônia', RR:'Roraima', SC:'Santa Catarina', SP:'São Paulo', SE:'Sergipe', TO:'Tocantins' };
@@ -1000,6 +1005,43 @@
             return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
         }
 
+        // Consulta distâncias rodoviárias reais (perfil driving) por matriz OSRM.
+        // Lotes pequenos respeitam o limite prático do serviço público e evitam URLs excessivas.
+        async function calcularDistanciasCarroLocalizador(origem, destinos, aoConcluir) {
+            const resultado = new Map();
+            const chavePonto = p => `${Number(p.lon).toFixed(5)},${Number(p.lat).toFixed(5)}`;
+            const origemChave = chavePonto(origem);
+            const faltantes = [];
+            destinos.forEach(item => {
+                const chave = `${origemChave}|${chavePonto(item.ponto)}`;
+                if (Number.isFinite(cacheRotasLocalizador[chave])) resultado.set(item.chave, cacheRotasLocalizador[chave]);
+                else faltantes.push({ ...item, cacheKey: chave });
+            });
+            const tamanhoLote = 40;
+            for (let inicio = 0; inicio < faltantes.length; inicio += tamanhoLote) {
+                const lote = faltantes.slice(inicio, inicio + tamanhoLote);
+                const coordenadas = [origem, ...lote.map(x => x.ponto)]
+                    .map(p => `${Number(p.lon)},${Number(p.lat)}`).join(';');
+                const url = `${URL_SERVICO_ROTAS_LOCALIZADOR}${coordenadas}?sources=0&destinations=${lote.map((_, i) => i + 1).join(';')}&annotations=distance,duration`;
+                const resposta = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(25000) });
+                if (!resposta.ok) throw new Error('O serviço de cálculo de rotas por carro não respondeu. Tente novamente em instantes.');
+                const dados = await resposta.json();
+                if (dados.code !== 'Ok' || !Array.isArray(dados.distances?.[0])) throw new Error('Não foi possível obter as distâncias rodoviárias para todas as localidades.');
+                lote.forEach((item, i) => {
+                    const metros = dados.distances[0][i];
+                    if (Number.isFinite(metros)) {
+                        const km = metros / 1000;
+                        resultado.set(item.chave, km);
+                        cacheRotasLocalizador[item.cacheKey] = km;
+                    }
+                });
+                try { localStorage.setItem('cacheRotasTecnicosBR_v1', JSON.stringify(cacheRotasLocalizador)); } catch (_) {}
+                if (aoConcluir) aoConcluir(Math.min(inicio + tamanhoLote, faltantes.length), faltantes.length);
+                if (inicio + tamanhoLote < faltantes.length) await new Promise(resolve => setTimeout(resolve, 1100));
+            }
+            return resultado;
+        }
+
         function escaparHtmlLocalizador(valor) {
             return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
@@ -1029,7 +1071,7 @@
             try {
                 status.textContent = 'Carregando a base brasileira de cidades (somente na primeira utilização)...';
                 await carregarBaseMunicipiosBR();
-                status.textContent = 'Calculando distâncias dos técnicos...';
+                status.textContent = 'Preparando cálculo das rotas por carro...';
                 const origemPonto = await geocodificarCidadeBR(cidadeCliente, ufCliente);
                 const origemTexto = `${cidadeCliente}, ${ufCliente}, Brasil`;
                 // Regra simplificada: considerar exclusivamente técnicos do mesmo estado do cliente.
@@ -1062,25 +1104,34 @@
                     status.textContent = `Localizando cidades: ${processadas} de ${pendentes.length} localidades novas...`;
                 });
 
+                const destinosUnicos = [...new Map(tecnicosValidos.map(t => {
+                    const chave = chaveCidadeGeo(t.cidade, t.estado);
+                    return [chave, { chave, ponto: pontos[chave] }];
+                }).filter(([, item]) => !!item.ponto)).values()];
+                status.textContent = 'Calculando distâncias reais por carro...';
+                const distanciasPorCidade = await calcularDistanciasCarroLocalizador(origemPonto, destinosUnicos, (feitas, total) => {
+                    status.textContent = `Calculando rotas por carro: ${feitas} de ${total} localidades...`;
+                });
                 const calculados = tecnicosValidos.map(t => {
-                    const ponto = pontos[chaveCidadeGeo(t.cidade, t.estado)];
-                    if (!ponto) return null;
-                    return { tecnico:t, distancia:distanciaKmHaversine(origemPonto, ponto), mesmoEstado:true };
+                    const chave = chaveCidadeGeo(t.cidade, t.estado);
+                    const distancia = distanciasPorCidade.get(chave);
+                    if (!Number.isFinite(distancia)) return null;
+                    return { tecnico:t, distancia, mesmoEstado:true };
                 }).filter(Boolean);
-                // Limite geográfico: nenhum técnico acima de 300 km entra na lista.
+                // O limite de 350 km é aplicado à distância da rota rodoviária.
                 const dentroDoRaio = calculados.filter(x => x.distancia <= DISTANCIA_MAXIMA_LOCALIZADOR_KM);
                 const ordenados = dentroDoRaio.sort((a,b) => a.distancia-b.distancia);
 
                 if (!ordenados.length) {
                     if (calculados.length) {
                         resumo.textContent = `Nenhum técnico foi encontrado dentro do limite de ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km.`;
-                        resultados.innerHTML = `<div class="alert alert-warning">Não há técnicos do estado ${escaparHtmlLocalizador(ufClienteNormalizada)} a até ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km de ${escaparHtmlLocalizador(origemTexto)}. Técnicos de outros estados não são pesquisados.</div>`;
+                        resultados.innerHTML = `<div class="alert alert-warning">Não há técnicos do estado ${escaparHtmlLocalizador(ufClienteNormalizada)} a até ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km por estrada de ${escaparHtmlLocalizador(origemTexto)}. Técnicos de outros estados não são pesquisados.</div>`;
                     } else {
                         resumo.textContent = `Não foi possível calcular a localização de nenhum técnico. Confira se os cadastros possuem cidade e UF válidas.`;
                         resultados.innerHTML = `<div class="alert alert-warning">Nenhum técnico com cidade e UF válidas foi encontrado no estado ${escaparHtmlLocalizador(ufClienteNormalizada)}.</div>`;
                     }
                 } else {
-                    resumo.textContent = `${ordenados.length} técnico(s) do estado ${ufClienteNormalizada} listado(s) em até ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km, em ordem de proximidade.`;
+                    resumo.textContent = `${ordenados.length} técnico(s) do estado ${ufClienteNormalizada} listado(s) em até ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km por carro, em ordem de menor distância rodoviária.`;
                     resultados.innerHTML = ordenados.map((item, indice) => {
                         const t = item.tecnico;
                         const localDestino = `${t.cidade}, ${t.estado}, Brasil`;
@@ -1096,7 +1147,7 @@
                 const avisos = [];
                 const totalOutrosEstados = dadosTecnicos.filter(t => t && t.nome && t.estado && t.estado !== '-' && normalizarUFLocalizador(t.estado) !== ufClienteNormalizada).length;
                 if (totalOutrosEstados) avisos.push(`${totalOutrosEstados} técnico(s) de outros estados não foram pesquisados`);
-                if (foraDoRaio) avisos.push(`${foraDoRaio} técnico(s) acima de ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km foram ocultados`);
+                if (foraDoRaio) avisos.push(`${foraDoRaio} técnico(s) acima de ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km por estrada foram ocultados`);
                 if (ignorados) {
                     const cidadesSemCoordenadas = [...new Map(tecnicosValidos
                         .filter(t => !pontos[chaveCidadeGeo(t.cidade, t.estado)])

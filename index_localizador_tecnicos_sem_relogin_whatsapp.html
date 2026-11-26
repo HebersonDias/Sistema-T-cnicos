@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão - Técnicos, Envios e Retornos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { background-color: #222222; color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background: linear-gradient(135deg, #1f4e78, #2e6da4); }
+        .card { background-color: #2b2b2b; color: #f8f9fa; border: 1px solid #444; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        
+        .table { color: #ffffff !important; }
+        .table tbody td { color: #ffffff !important; background-color: transparent !important; }
+        .table-hover tbody tr:hover { background-color: #383838 !important; color: #ffffff !important; }
+        .badge-estado { font-size: 0.85rem; padding: 0.4em 0.8em; }
+        
+        .form-control, .form-select {
+            background-color: #e9ecef !important;
+            color: #212529 !important;
+            border: 2px solid #adb5bd !important;
+            font-weight: 600;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #f8f9fa !important;
+            border-color: #0d6efd !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .form-control::placeholder {
+            color: #6c757d !important;
+        }
+        .form-control:read-only {
+            background-color: #ced4da !important;
+            color: #495057 !important;
+        }
+
+        .table-dark { background-color: #1a1a1a !important; color: #ffffff !important; }
+
+        /* Abas de Navegação */
+        .nav-pills .nav-link {
+            color: #adb5bd;
+            background-color: #2b2b2b;
+            border: 1px solid #444;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .nav-pills .nav-link:hover {
+            color: #ffffff;
+            background-color: #383838;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+            color: #ffffff;
+            border-color: #0d6efd;
+        }
+
+        /* Tela de Bloqueio */
+        #telaBloqueio {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #181818;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-brand { font-size: 0.95rem !important; }
+            .container-fluid { padding-left: 6px !important; padding-right: 6px !important; }
+            .btn { font-size: 0.78rem !important; padding: 0.28rem 0.5rem !important; }
+            .table td, .table th { padding: 0.35rem 0.25rem !important; font-size: 0.72rem !important; white-space: nowrap; }
+            h5 { font-size: 1.05rem !important; }
+            .nav-pills .nav-link { font-size: 0.85rem; padding: 0.45rem 0.75rem; }
+        }
+
+        .localizador-card { border: 1px solid #495057; border-radius: 10px; background: #292929; }
+        .resultado-tecnico { border: 1px solid #495057; border-left: 4px solid #0d6efd; border-radius: 8px; background: #303030; padding: 14px; }
+        .resultado-tecnico.estado-cliente { border-left-color: #198754; }
+        .resultado-distancia { font-size: 1.15rem; font-weight: 700; color: #7db5ff; }
+        #statusLocalizador { min-height: 24px; }
+    </style>
+</head>
+<body>
+
+    <!-- Tela de Login Inicial -->
+    <div id="telaBloqueio">
+        <div class="card p-4 shadow-lg" style="max-width: 380px; width: 100%;">
+            <div class="text-center mb-3">
+                <i class="fas fa-shield-alt fa-3x text-primary mb-2"></i>
+                <h4 class="fw-bold">Acesso Restrito</h4>
+                <p class="text-muted small">Digite a senha para acessar o sistema</p>
+            </div>
+            <form id="formLoginInicial">
+                <div class="mb-3">
+                    <input type="password" id="inputSenhaInicial" class="form-control text-center" placeholder="••••" required autofocus>
+                </div>
+                <div id="msgErroLogin" class="text-danger small text-center mb-2 d-none">Senha incorreta! Tente novamente.</div>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                    <i class="fas fa-sign-in-alt me-1"></i> Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Senha de Administrador -->
+    <div class="modal fade" id="modalAdmin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h6 class="modal-title"><i class="fas fa-user-lock me-2 text-warning"></i>Modo Administrador</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form id="formLoginAdmin">
+                    <div class="modal-body">
+                        <label class="form-label small text-muted">Digite a senha de administrador:</label>
+                        <input type="password" id="inputSenhaAdmin" class="form-control text-center" placeholder="••••" required>
+                        <div id="msgErroAdmin" class="text-danger small text-center mt-2 d-none">Senha incorreta!</div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="submit" class="btn btn-warning btn-sm w-100 fw-semibold text-dark">Desbloquear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="conteudoSistema" class="d-none">
+        <!-- Barra Superior -->
+        <nav class="navbar navbar-dark shadow-sm mb-3">
+            <div class="container-fluid px-2 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 py-2">
+                <span class="navbar-brand mb-0 h1 text-center text-md-start">
+                    <i class="fas fa-cogs me-2"></i>Sistema de Gestão Operacional
+                </span>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <button id="btnAdminToggle" class="btn btn-warning btn-sm fw-semibold text-dark" onclick="alternarModoAdmin()">
+                        <i class="fas fa-lock me-1" id="iconeAdmin"></i> <span id="textoAdmin">Modo Admin (Bloqueado)</span>
+                    </button>
+                    <button id="btnImportarGeral" class="btn btn-info btn-sm fw-semibold text-dark d-none admin-panel" onclick="document.getElementById('inputPlanilhaCompleta').click();" title="Importa Técnicos, Envios e Retornos de um único arquivo Excel">
+                        <i class="fas fa-file-import me-1"></i> Importar Planilha Completa
+                    </button>
+                    <input type="file" id="inputPlanilhaCompleta" accept=".xlsx, .xls" class="d-none" onchange="processarPlanilhaCompleta(event)">
+                    <button id="btnExportarGeral" class="btn btn-light btn-sm fw-semibold text-primary" onclick="exportarPlanilhaCompleta()">
+                        <i class="fas fa-file-export me-1"></i> Baixar Planilha (.xlsx)
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-2 px-md-4 pb-5">
+            <!-- Navegação por Abas -->
+            <ul class="nav nav-pills nav-fill gap-2 mb-4" id="abasSistema">
+                <li class="nav-item">
+                    <button class="nav-link active" id="tab-tecnicos" onclick="trocarAba('tecnicos')">
+                        <i class="fas fa-users-cog me-1"></i> Técnicos
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-envios" onclick="trocarAba('envios')">
+                        <i class="fas fa-truck-loading me-1"></i> Envios
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-retornos" onclick="trocarAba('retornos')">
+                        <i class="fas fa-undo-alt me-1"></i> Retornos
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-localizador" onclick="trocarAba('localizador')">
+                        <i class="fas fa-map-marker-alt me-1"></i> Localizador de Técnicos
+                    </button>
+                </li>
+            </ul>
+
+            <!-- ========================================== -->
+            <!-- SEÇÃO 1: TÉCNICOS                          -->
+            <!-- ========================================== -->
+            <div id="secao-tecnicos">
+                <!-- Painel Admin Técnicos -->
+                <div class="row g-3 mb-4 d-none admin-panel">
+                    <div class="col-lg-4">
+                        <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Importar Planilha de Técnicos</h5>
+                                <p class="text-muted small mb-3">Envie um arquivo Excel/CSV (lê a aba "Técnicos" ou a primeira aba).</p>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilhaTecnicos').click();">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> Selecionar Planilha (.xlsx)
+                                </button>
+                                <input type="file" id="inputPlanilhaTecnicos" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilhaTecnicos(event)">
+                                <button class="btn btn-outline-danger btn-sm w-100 fw-semibold" onclick="limparBanco('tecnicos')">
+                                    <i class="fas fa-trash-alt me-1"></i> Limpar Todos os Técnicos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-8">
+                        <div class="card p-3 h-100">
+                            <h5 class="card-title text-success mb-3" id="formTituloTec"><i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico</h5>
+                            <form id="formNovoTecnico" class="row g-2">
+                                <input type="hidden" id="editIndexTec" value="-1">
+                                <div class="col-md-6">
+                                    <input type="text" id="novoNome" class="form-control form-control-sm" placeholder="Nome do Técnico" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="novaEmpresa" class="form-control form-control-sm" placeholder="Empresa" required>
+                                </div>
+                                <div class="col-md-8">
+                                    <input type="text" id="novoBanco" class="form-control form-control-sm" placeholder="Dados Bancários / PIX" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <select id="novoTipo" class="form-select form-select-sm" required>
+                                        <option value="PJ">PJ</option>
+                                        <option value="PF">PF</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text" id="novaCidade" class="form-control form-control-sm" placeholder="Cidade" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" id="novoEstado" class="form-control form-control-sm" placeholder="UF (Ex: SP)" maxlength="2" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" id="novoTel" class="form-control form-control-sm" placeholder="Telefone">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="novoFat" class="form-control form-control-sm" placeholder="Código de faturamento" title="Identificador de faturamento (não é valor monetário)">
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="novoEnvio" class="form-control form-control-sm" placeholder="Código de rastreamento dos Correios" title="Código de rastreamento dos Correios (letras e números)" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="col-12 mt-2 d-flex gap-2">
+                                    <button type="submit" id="btnSalvarTec" class="btn btn-success btn-sm w-100"><i class="fas fa-save me-1"></i> Adicionar Técnico</button>
+                                    <button type="button" id="btnCancelarTec" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicaoTec()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Técnicos -->
+                <div class="card p-3 p-md-4 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar Técnico, Empresa ou Cidade</label>
+                            <input type="text" id="searchNome" class="form-control" placeholder="Digite para filtrar...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-id-badge me-1"></i> Tipo (PF/PJ)</label>
+                            <select id="filterTipo" class="form-select">
+                                <option value="">Todos (PF e PJ)</option>
+                                <option value="PJ">PJ</option>
+                                <option value="PF">PF</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-filter me-1"></i> Filtrar por Estado (UF)</label>
+                            <select id="filterEstado" class="form-select">
+                                <option value="">Todos os Estados</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="btnLimparTec" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela Técnicos -->
+                <div class="card p-2 p-md-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Empresa</th>
+                                    <th>Dados Bancários</th>
+                                    <th>PF/PJ</th>
+                                    <th>Cidade</th>
+                                    <th>Estado</th>
+                                    <th>Cód. Faturamento</th>
+                                    <th>Cód. Envio</th>
+                                    <th>Telefone</th>
+                                    <th class="th-acoes d-none">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyTecnicos"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 px-2">
+                        <span class="text-muted small" id="contadorTecnicos">Carregando dados...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- LOCALIZADOR DE TÉCNICOS                   -->
+            <!-- ========================================== -->
+            <div id="secao-localizador" class="d-none">
+                <div class="card p-3 p-md-4 mb-3">
+                    <h5 class="text-info mb-2"><i class="fas fa-map-marked-alt me-2"></i>Localizar técnicos próximos</h5>
+                    <p class="text-muted small mb-3">Informe a cidade e o estado do cliente. O sistema calcula a distância estimada por carro entre os centros urbanos e organiza os profissionais pela menor rota. Serão exibidos somente técnicos em até 350 km por estrada.</p>
+                    <form id="formLocalizador" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="cidadeCliente" class="form-label fw-semibold">Cidade do cliente</label>
+                            <input id="cidadeCliente" class="form-control" placeholder="Ex.: Campinas" required autocomplete="address-level2">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="estadoCliente" class="form-label fw-semibold">Estado (UF)</label>
+                            <select id="estadoCliente" class="form-select" required>
+                                <option value="">Selecione</option>
+                                <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button id="btnBuscarTecnicosProximos" type="submit" class="btn btn-primary w-100 fw-semibold"><i class="fas fa-search-location me-2"></i>Buscar técnicos</button>
+                        </div>
+                    </form>
+                    <div id="statusLocalizador" class="small text-info mt-3" role="status" aria-live="polite"></div>
+                </div>
+                <div id="resumoLocalizador" class="small text-muted mb-3"></div>
+                <div id="resultadosLocalizador" class="d-grid gap-2">
+                    <div class="text-center text-muted py-4">Informe a cidade e o estado do cliente para iniciar a busca.</div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- SEÇÃO 2: ENVIOS                            -->
+            <!-- ========================================== -->
+            <div id="secao-envios" class="d-none">
+                <!-- Painel Admin Envios -->
+                <div class="row g-3 mb-4 d-none admin-panel">
+                    <div class="col-lg-3">
+                        <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Importar Envios</h5>
+                                <p class="text-muted small mb-3">Importa as colunas A até L da guia de Envios do Excel.</p>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilhaEnvios').click();">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> Planilha Envios (.xlsx)
+                                </button>
+                                <input type="file" id="inputPlanilhaEnvios" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilhaEnvios(event)">
+                                <button class="btn btn-outline-danger btn-sm w-100 fw-semibold" onclick="limparBanco('envios')">
+                                    <i class="fas fa-trash-alt me-1"></i> Limpar Todos Envios
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-9">
+                        <div class="card p-3 h-100">
+                            <h5 class="card-title text-success mb-3" id="formTituloEnv"><i class="fas fa-plus-circle me-2"></i>Novo Lançamento de Envio</h5>
+                                                                                    <form id="formNovoEnvio" class="row g-2">
+                                <input type="hidden" id="editIndexEnv" value="-1">
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envDataPed" class="form-control form-control-sm" placeholder="DD/MM/AA" required title="Data em que o pedido foi feito">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data do pedido</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="envTecnico" class="form-control form-control-sm" placeholder="Ex: TIAGO" required title="Nome do técnico responsável">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nome do técnico</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envDtForno" class="form-control form-control-sm" placeholder="DD/MM/AA" title="Data de referência do forno">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data referência</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envNf" class="form-control form-control-sm" placeholder="Ex: 10099" title="Número da Nota Fiscal">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nº Nota Fiscal</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <input type="text" id="envModelo" class="form-control form-control-sm" placeholder="Ex: TP 35/80 GAS" title="Modelo do equipamento">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Modelo do forno/equipamento</div>
+                                </div>
+
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envPedido" class="form-control form-control-sm" placeholder="Ex: 19303" title="Número do pedido interno">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nº Pedido</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="envOs" class="form-control form-control-sm" placeholder="Ex: 31902" required title="Ordem de Serviço (Chave de vínculo)">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Ordem de Serviço</div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <input type="text" id="envCliente" class="form-control form-control-sm" placeholder="Nome do Cliente" required title="Nome do cliente final">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nome do cliente</div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <input type="text" id="envPecas" class="form-control form-control-sm" placeholder="Ex: 1 KM7 1 FONTE" required title="Descrição das peças enviadas">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Peças e quantidades</div>
+                                </div>
+
+                                <div class="col-6 col-md-4">
+                                    <input type="text" id="envRastreio" class="form-control form-control-sm" placeholder="Código de rastreamento dos Correios" title="Código de rastreamento dos Correios ou da transportadora" autocomplete="off" spellcheck="false">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Código de rastreamento</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="envPrevisao" class="form-control form-control-sm" placeholder="DD/MM/AA ou ?" title="Data prevista de chegada">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Previsão de entrega</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <select id="envChegou" class="form-select form-select-sm" title="Status">
+                                        <option value="SIM">SIM</option>
+                                        <option value="NAO">NÃO</option>
+                                        <option value="OK">OK</option>
+                                    </select>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
+                                </div>
+                                <div class="col-12 col-md-2 d-flex align-items-center">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" id="chkCriarRetorno" checked>
+                                        <label class="form-check-label small text-info fw-semibold" for="chkCriarRetorno" title="Gera automaticamente o espelho na aba Retornos">
+                                            Gerar Retorno
+                                        </label>
+                                        <div class="form-text text-info" style="font-size: 0.65rem;">Espelha na aba Retorno</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 mt-2 d-flex gap-2">
+                                    <button type="submit" id="btnSalvarEnv" class="btn btn-success btn-sm w-100"><i class="fas fa-save me-1"></i> Salvar Envio</button>
+                                    <button type="button" id="btnCancelarEnv" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicaoEnv()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Envios -->
+                <div class="card p-3 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchEnvio" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-user-cog me-1"></i> Filtrar Técnico</label>
+                            <select id="filterEnvTecnico" class="form-select">
+                                <option value="">Todos os Técnicos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <div class="d-flex flex-wrap gap-3 pt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnvSim" value="SIM" checked onchange="filtrarEnvios()">
+                                    <label class="form-check-label text-success fw-bold" for="chkEnvSim">SIM</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnvNao" value="NAO" checked onchange="filtrarEnvios()">
+                                    <label class="form-check-label text-danger fw-bold" for="chkEnvNao">NÃO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnvOk" value="OK" checked onchange="filtrarEnvios()">
+                                    <label class="form-check-label text-secondary fw-bold" for="chkEnvOk">OK</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="btnLimparFiltroEnv" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela Envios -->
+                <div class="card p-2 p-md-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>DATA PED.</th>
+                                    <th>TÉCNICO</th>
+                                    <th>DT FORNO</th>
+                                    <th>NF</th>
+                                    <th>MODELO</th>
+                                    <th>PEDIDO</th>
+                                    <th>O.S.</th>
+                                    <th>CLIENTE</th>
+                                    <th>PEÇAS</th>
+                                    <th>RASTREIO</th>
+                                    <th>PREVISÃO</th>
+                                    <th>CHEGOU</th>
+                                    <th class="th-acoes d-none">AÇÕES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyEnvios"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 px-2">
+                        <span class="text-muted small" id="contadorEnvios">Carregando dados...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- SEÇÃO 3: RETORNOS (VINCULADO AO ENVIO)     -->
+            <!-- ========================================== -->
+            <div id="secao-retornos" class="d-none">
+                <!-- Painel Admin Retornos -->
+                <div class="row g-3 mb-4 d-none admin-panel">
+                    <div class="col-lg-3">
+                        <div class="card p-3 h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title text-primary mb-2"><i class="fas fa-file-excel me-2"></i>Importar Retornos</h5>
+                                <p class="text-muted small mb-3">Importa diretamente a guia de Retornos do Excel (colunas A até L).</p>
+                            </div>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" onclick="document.getElementById('inputPlanilhaRetornos').click();">
+                                    <i class="fas fa-cloud-upload-alt me-2"></i> Planilha Retornos (.xlsx)
+                                </button>
+                                <input type="file" id="inputPlanilhaRetornos" accept=".xlsx, .xls, .csv" class="d-none" onchange="processarPlanilhaRetornos(event)">
+                                <button class="btn btn-outline-danger btn-sm w-100 fw-semibold" onclick="limparBanco('retornos')">
+                                    <i class="fas fa-trash-alt me-1"></i> Limpar Todos Retornos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-9">
+                        <div class="card p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="card-title text-warning mb-0" id="formTituloRet"><i class="fas fa-exchange-alt me-2"></i>Lançar / Editar Retorno de Peça</h5>
+                                <span class="badge bg-info text-dark">Puxa dados automático pela O.S.</span>
+                            </div>
+                                                                                    <form id="formNovoRetorno" class="row g-2">
+                                <input type="hidden" id="editIndexRet" value="-1">
+                                
+                                <!-- Busca Rápida por O.S. Digitando -->
+                                <div class="col-12 col-md-4">
+                                    <input type="text" id="retInputOsBusca" class="form-control form-control-sm border-warning" list="listaOsEnvios" placeholder="Digite ou selecione a O.S..." oninput="verificarBuscaOsEnvio(this.value)" autocomplete="off">
+                                    <datalist id="listaOsEnvios"></datalist>
+                                    <div class="form-text text-warning" style="font-size: 0.72rem;">Digite a O.S. para preencher automático</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="retOs" class="form-control form-control-sm" placeholder="O.S." required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Ordem de Serviço</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="retDataPed" class="form-control form-control-sm" placeholder="DD/MM/AA">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data do retorno</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <input type="text" id="retPedido" class="form-control form-control-sm" placeholder="Nº Pedido/Coleta">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nº Pedido de retorno</div>
+                                </div>
+
+                                <!-- Campos espelhados do Envio -->
+                                <div class="col-6 col-md-3">
+                                    <input type="text" id="retTecnico" class="form-control form-control-sm" placeholder="Técnico" required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Técnico responsável</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="retDtForno" class="form-control form-control-sm" placeholder="DD/MM/AA">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Data referência</div>
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <input type="text" id="retNf" class="form-control form-control-sm" placeholder="NF">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nota Fiscal</div>
+                                </div>
+                                <div class="col-6 col-md-5">
+                                    <input type="text" id="retModelo" class="form-control form-control-sm" placeholder="Modelo do Equipamento">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Modelo do forno</div>
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <input type="text" id="retCliente" class="form-control form-control-sm" placeholder="Cliente" required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Nome do cliente</div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <input type="text" id="retPecas" class="form-control form-control-sm" placeholder="Peças" required>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Peças em retorno</div>
+                                </div>
+
+                                <!-- Campos de Logística do Retorno -->
+                                <div class="col-6 col-md-5">
+                                    <input type="text" id="retRastreio" class="form-control form-control-sm" placeholder="Código de rastreamento dos Correios" autocomplete="off" spellcheck="false">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Código de rastreamento</div>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <input type="text" id="retPrevisao" class="form-control form-control-sm" placeholder="DD/MM/AA ou ?">
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Previsão de chegada</div>
+                                </div>
+                                <div class="col-12 col-md-3">
+                                    <select id="retChegou" class="form-select form-select-sm">
+                                        <option value="SIM">SIM</option>
+                                        <option value="NAO">NÃO</option>
+                                        <option value="OK">OK</option>
+                                    </select>
+                                    <div class="form-text text-info" style="font-size: 0.72rem;">Status (SIM / NÃO / OK)</div>
+                                </div>
+
+                                <div class="col-12 mt-2 d-flex gap-2">
+                                    <button type="submit" id="btnSalvarRet" class="btn btn-warning text-dark fw-semibold btn-sm flex-grow-1"><i class="fas fa-save me-1"></i> Salvar Retorno</button>
+                                    <button type="button" id="btnLimparRet" class="btn btn-outline-light btn-sm px-3" onclick="cancelarEdicaoRet()" title="Limpa todos os campos do formulário"><i class="fas fa-eraser me-1"></i> Limpar Dados</button>
+                                    <button type="button" id="btnCancelarRet" class="btn btn-secondary btn-sm d-none" onclick="cancelarEdicaoRet()"><i class="fas fa-times me-1"></i> Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Retornos -->
+                <div class="card p-3 mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-search me-1"></i> Pesquisar O.S., Cliente, Técnico ou Peça</label>
+                            <input type="text" id="searchRetorno" class="form-control" placeholder="Digite O.S., cliente, rastreio...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light"><i class="fas fa-user-cog me-1"></i> Filtrar Técnico</label>
+                            <select id="filterRetTecnico" class="form-select">
+                                <option value="">Todos os Técnicos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-light d-block"><i class="fas fa-check-circle me-1"></i> Status Chegou</label>
+                            <div class="d-flex flex-wrap gap-3 pt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetSim" value="SIM" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-success fw-bold" for="chkRetSim">SIM</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetNao" value="NAO" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-danger fw-bold" for="chkRetNao">NÃO</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkRetOk" value="OK" checked onchange="filtrarRetornos()">
+                                    <label class="form-check-label text-secondary fw-bold" for="chkRetOk">OK</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button id="btnLimparFiltroRet" class="btn btn-outline-light w-100"><i class="fas fa-undo me-1"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela Retornos -->
+                <div class="card p-2 p-md-3">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>DATA</th>
+                                    <th>TÉCNICO</th>
+                                    <th>DT FORNO</th>
+                                    <th>NF</th>
+                                    <th>MODELO</th>
+                                    <th>PEDIDO</th>
+                                    <th>O.S.</th>
+                                    <th>CLIENTE</th>
+                                    <th>PEÇAS</th>
+                                    <th>RASTREIO</th>
+                                    <th>PREVISÃO</th>
+                                    <th>CHEGOU</th>
+                                    <th class="th-acoes d-none">AÇÕES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRetornos"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 px-2">
+                        <span class="text-muted small" id="contadorRetornos">Carregando dados...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Senhas do sistema
+        const SENHA_ACESSO = "1307"; 
+        const SENHA_ADMIN = "6101";
+        const CHAVE_SESSAO_ACESSO = "sistemaTecnicosAcessoLiberado_v1";
+
+        let db = null;
+        let dadosTecnicos = [];
+        let dadosEnvios = [];
+        let dadosRetornos = [];
+        let isAdmin = false;
+        let modalAdmin = null;
+        let abaAtual = 'tecnicos';
+
+        // ==========================================
+        // AUTENTICAÇÃO E INICIALIZAÇÃO
+        // ==========================================
+        function liberarAcessoSistema() {
+            document.getElementById('telaBloqueio').classList.add('d-none');
+            document.getElementById('conteudoSistema').classList.remove('d-none');
+            modalAdmin = new bootstrap.Modal(document.getElementById('modalAdmin'));
+
+            const firebaseConfig = {
+                apiKey: "AIzaSyC2LafGVK50k7uMmNPz7Hw9X9Ozhtoozk",
+                authDomain: "sistematecnicos-e1e6e.firebaseapp.com",
+                projectId: "sistematecnicos-e1e6e",
+                storageBucket: "sistematecnicos-e1e6e.appspot.com",
+                messagingSenderId: "990062939383",
+                appId: "1:990062939383:web:893deafebae20e26ce57f2"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            iniciarEscutaFirebase();
+        }
+
+        // Mantém o acesso neste navegador, inclusive após atualizar a página (F5).
+        // A autorização fica salva até os dados do site serem apagados.
+        try {
+            if (localStorage.getItem(CHAVE_SESSAO_ACESSO) === 'sim') {
+                liberarAcessoSistema();
+            }
+        } catch (erro) {
+            console.warn('Não foi possível recuperar a sessão salva.', erro);
+        }
+
+        document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const digitada = document.getElementById('inputSenhaInicial').value.trim();
+
+            if (digitada === SENHA_ACESSO) {
+                try { localStorage.setItem(CHAVE_SESSAO_ACESSO, 'sim'); } catch (erro) {
+                    console.warn('Não foi possível salvar a sessão neste navegador.', erro);
+                }
+                liberarAcessoSistema();
+            } else {
+                document.getElementById('msgErroLogin').classList.remove('d-none');
+                document.getElementById('inputSenhaInicial').value = '';
+                document.getElementById('inputSenhaInicial').focus();
+            }
+        });
+
+        window.alternarModoAdmin = function() {
+            if (!isAdmin) {
+                document.getElementById('inputSenhaAdmin').value = '';
+                document.getElementById('msgErroAdmin').classList.add('d-none');
+                modalAdmin.show();
+                setTimeout(() => document.getElementById('inputSenhaAdmin').focus(), 400);
+            } else {
+                isAdmin = false;
+                document.getElementById('iconeAdmin').className = "fas fa-lock me-1";
+                document.getElementById('textoAdmin').textContent = "Modo Admin (Bloqueado)";
+                document.getElementById('btnAdminToggle').className = "btn btn-warning btn-sm fw-semibold text-dark";
+                document.querySelectorAll('.admin-panel').forEach(el => el.classList.add('d-none'));
+                document.querySelectorAll('.th-acoes').forEach(el => el.classList.add('d-none'));
+                cancelarEdicaoTec();
+                cancelarEdicaoEnv();
+                cancelarEdicaoRet();
+                renderizarTudo();
+            }
+        };
+
+        document.getElementById('formLoginAdmin').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const digitada = document.getElementById('inputSenhaAdmin').value.trim();
+
+            if (digitada === SENHA_ADMIN) {
+                isAdmin = true;
+                modalAdmin.hide();
+                document.getElementById('iconeAdmin').className = "fas fa-lock-open me-1";
+                document.getElementById('textoAdmin').textContent = "Admin Ativo";
+                document.getElementById('btnAdminToggle').className = "btn btn-success btn-sm fw-semibold text-white";
+                document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('d-none'));
+                document.querySelectorAll('.th-acoes').forEach(el => el.classList.remove('d-none'));
+                renderizarTudo();
+            } else {
+                document.getElementById('msgErroAdmin').classList.remove('d-none');
+                document.getElementById('inputSenhaAdmin').value = '';
+                document.getElementById('inputSenhaAdmin').focus();
+            }
+        });
+
+        window.trocarAba = function(aba) {
+            abaAtual = aba;
+            ['tecnicos', 'envios', 'retornos', 'localizador'].forEach(nome => {
+                document.getElementById(`tab-${nome}`).classList.toggle('active', nome === aba);
+                document.getElementById(`secao-${nome}`).classList.toggle('d-none', nome !== aba);
+            });
+        };
+
+        // ==========================================
+        // FIREBASE REALTIME DATABASE
+        // ==========================================
+        function iniciarEscutaFirebase() {
+            onValue(ref(db, 'tecnicos'), (snapshot) => {
+                dadosTecnicos = (snapshot.val() || []).map(item => ({ ...item, fat: normalizarCodigoTexto(item.fat), envio: normalizarCodigoTexto(item.envio) }));
+                atualizarDropdownEstados();
+                filtrarTecnicos();
+            });
+
+            onValue(ref(db, 'envios'), (snapshot) => {
+                dadosEnvios = (snapshot.val() || []).map(item => ({ ...item, rastreio: normalizarCodigoTexto(item.rastreio) }));
+                atualizarDropdownTecnicos('envios');
+                atualizarSelectOsEnvio();
+                filtrarEnvios();
+            });
+
+            onValue(ref(db, 'retornos'), (snapshot) => {
+                dadosRetornos = (snapshot.val() || []).map(item => ({ ...item, rastreio: normalizarCodigoTexto(item.rastreio) }));
+                atualizarDropdownTecnicos('retornos');
+                filtrarRetornos();
+            });
+        }
+
+        function salvarNoFirebase(caminho, dados) {
+            const dadosNormalizados = caminho === 'tecnicos'
+                ? dados.map(item => ({ ...item, fat: normalizarCodigoTexto(item.fat), envio: normalizarCodigoTexto(item.envio) }))
+                : dados.map(item => ({ ...item, rastreio: normalizarCodigoTexto(item.rastreio) }));
+            set(ref(db, caminho), dadosNormalizados).catch((err) => {
+                console.error(`Erro ao salvar em ${caminho}:`, err);
+                alert("Erro ao salvar na nuvem. Verifique sua conexão.");
+            });
+        }
+
+        window.limparBanco = function(caminho) {
+            if (!isAdmin) return;
+            const nomes = { tecnicos: 'Técnicos', envios: 'Envios', retornos: 'Retornos' };
+            if (confirm(`Tem certeza que deseja apagar TODOS os registros de ${nomes[caminho]} da nuvem?`)) {
+                salvarNoFirebase(caminho, []);
+            }
+        };
+
+        function renderizarTudo() {
+            filtrarTecnicos();
+            filtrarEnvios();
+            filtrarRetornos();
+        }
+
+
+        // ==========================================
+        // MÓDULO: LOCALIZADOR DE TÉCNICOS
+        // ==========================================
+        const cacheGeoLocalizador = (() => {
+            try { return JSON.parse(localStorage.getItem('cacheGeoTecnicosBR') || '{}'); }
+            catch (_) { return {}; }
+        })();
+        const DISTANCIA_MAXIMA_LOCALIZADOR_KM = 350;
+        const URL_SERVICO_ROTAS_LOCALIZADOR = 'https://router.project-osrm.org/table/v1/driving/';
+        const cacheRotasLocalizador = (() => {
+            try { return JSON.parse(localStorage.getItem('cacheRotasTecnicosBR_v1') || '{}'); }
+            catch (_) { return {}; }
+        })();
+        // Base pública com coordenadas dos municípios brasileiros: uma única carga, sem geocodificar técnico por técnico.
+        const URL_BASE_MUNICIPIOS_BR = 'https://raw.githubusercontent.com/PNLBrasil/Municipios-Brasileiros/master/Municipios_Brasileiros.csv';
+        const NOME_ESTADO_GEO = { AC:'Acre', AL:'Alagoas', AP:'Amapá', AM:'Amazonas', BA:'Bahia', CE:'Ceará', DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão', MT:'Mato Grosso', MS:'Mato Grosso do Sul', MG:'Minas Gerais', PA:'Pará', PB:'Paraíba', PR:'Paraná', PE:'Pernambuco', PI:'Piauí', RJ:'Rio de Janeiro', RN:'Rio Grande do Norte', RS:'Rio Grande do Sul', RO:'Rondônia', RR:'Roraima', SC:'Santa Catarina', SP:'São Paulo', SE:'Sergipe', TO:'Tocantins' };
+        let baseMunicipiosBRPromise = null;
+        let indiceMunicipiosBR = null;
+        let municipiosPorUF = new Map();
+
+        function normalizarCidadeGeo(valor) {
+            return String(valor || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        }
+
+        function normalizarUFLocalizador(uf) {
+            const valor = String(uf || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+            const nomes = {
+                'ACRE':'AC','ALAGOAS':'AL','AMAPA':'AP','AMAZONAS':'AM','BAHIA':'BA','CEARA':'CE',
+                'DISTRITO FEDERAL':'DF','ESPIRITO SANTO':'ES','GOIAS':'GO','MARANHAO':'MA',
+                'MATO GROSSO':'MT','MATO GROSSO DO SUL':'MS','MINAS GERAIS':'MG','PARA':'PA',
+                'PARAIBA':'PB','PARANA':'PR','PERNAMBUCO':'PE','PIAUI':'PI','RIO DE JANEIRO':'RJ',
+                'RIO GRANDE DO NORTE':'RN','RIO GRANDE DO SUL':'RS','RONDONIA':'RO','RORAIMA':'RR',
+                'SANTA CATARINA':'SC','SAO PAULO':'SP','SERGIPE':'SE','TOCANTINS':'TO'
+            };
+            return nomes[valor] || (valor.length === 2 ? valor : valor);
+        }
+
+        // Resolve abreviações de forma genérica usando os nomes oficiais da base:
+        // iniciais (ex.: S J RIO PRETO), palavras truncadas (>=3 letras) e omissão
+        // de partículas (de, da, do, dos, das). Só aceita correspondência inequívoca.
+        const PARTICULAS_CIDADE = new Set(['DE','DA','DO','DAS','DOS','E']);
+
+        function tokensCidadeGeo(valor) {
+            return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+        }
+
+        function correspondeNomeAbreviado(entrada, oficial) {
+            const a = tokensCidadeGeo(entrada);
+            const b = tokensCidadeGeo(oficial);
+            if (!a.length || !b.length) return false;
+            let j = 0;
+            for (const token of a) {
+                let encontrado = false;
+                while (j < b.length) {
+                    const candidato = b[j++];
+                    if (PARTICULAS_CIDADE.has(candidato)) continue;
+                    if (token === candidato || (token.length === 1 && candidato.startsWith(token)) ||
+                        (token.length >= 3 && candidato.startsWith(token))) {
+                        encontrado = true;
+                        break;
+                    }
+                }
+                if (!encontrado) return false;
+            }
+            return true;
+        }
+
+        function resolverNomeMunicipio(cidade, uf) {
+            const ufNormalizada = normalizarUFLocalizador(uf);
+            const nome = normalizarCidadeGeo(cidade);
+            if (!nome || !municipiosPorUF.has(ufNormalizada)) return nome;
+            const candidatos = municipiosPorUF.get(ufNormalizada);
+            const exato = candidatos.find(item => item.normalizado === nome);
+            if (exato) return exato.normalizado;
+            const correspondentes = candidatos.filter(item => correspondeNomeAbreviado(cidade, item.nome));
+            if (correspondentes.length === 1) return correspondentes[0].normalizado;
+            // Se houver ambiguidade, não escolhe município aleatoriamente.
+            return nome;
+        }
+
+        function chaveCidadeGeo(cidade, uf) {
+            const cidadeLimpa = String(cidade || '').trim().replace(/\s*[-/]\s*[A-Z]{2}$/i, '');
+            const ufNormalizada = normalizarUFLocalizador(uf);
+            const cidadeCanonica = resolverNomeMunicipio(cidadeLimpa, ufNormalizada);
+            return `${normalizarCidadeGeo(cidadeCanonica)}-${ufNormalizada}`;
+        }
+
+        async function carregarBaseMunicipiosBR() {
+            if (indiceMunicipiosBR) return indiceMunicipiosBR;
+            if (baseMunicipiosBRPromise) return baseMunicipiosBRPromise;
+            baseMunicipiosBRPromise = (async () => {
+                let csv = '';
+                try { csv = localStorage.getItem('baseMunicipiosBR_v1') || ''; } catch (_) {}
+                if (!csv) {
+                    const resposta = await fetch(URL_BASE_MUNICIPIOS_BR, { cache: 'force-cache', signal: AbortSignal.timeout(18000) });
+                    if (!resposta.ok) throw new Error('Não foi possível carregar a base local de municípios.');
+                    csv = await resposta.text();
+                    try { localStorage.setItem('baseMunicipiosBR_v1', csv); } catch (_) {}
+                }
+                const indice = new Map();
+                const porUF = new Map();
+                const linhas = csv.replace(/^\uFEFF/, '').split(/\r?\n/);
+                for (let i = 1; i < linhas.length; i++) {
+                    const col = linhas[i].split(',');
+                    if (col.length < 7) continue;
+                    const nome = col[1], uf = normalizarUFLocalizador(col[3]), lat = Number(col[5]), lon = Number(col[6]);
+                    if (!nome || !uf || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+                    const normalizado = normalizarCidadeGeo(nome);
+                    indice.set(`${normalizado}-${uf}`, { lat, lon });
+                    if (!porUF.has(uf)) porUF.set(uf, []);
+                    porUF.get(uf).push({ nome, normalizado });
+                }
+                municipiosPorUF = porUF;
+                indiceMunicipiosBR = indice;
+                return indice;
+            })();
+            try { return await baseMunicipiosBRPromise; }
+            catch (erro) { baseMunicipiosBRPromise = null; throw erro; }
+        }
+
+        async function geocodificarCidadeBR(cidade, uf) {
+            const chave = chaveCidadeGeo(cidade, uf);
+            // Prioriza coordenadas padronizadas do município; cache legado fica como fallback.
+            if (!indiceMunicipiosBR) await carregarBaseMunicipiosBR();
+            const pontoMunicipio = indiceMunicipiosBR.get(chave);
+            if (pontoMunicipio) return pontoMunicipio;
+            if (cacheGeoLocalizador[chave]) return cacheGeoLocalizador[chave];
+            const consulta = `${cidade}, ${uf}, Brasil`;
+            const ufCanonica = normalizarUFLocalizador(uf);
+            const estadoCompleto = NOME_ESTADO_GEO[ufCanonica] || uf;
+            const termo = `${cidade}, ${estadoCompleto}, Brasil`;
+            const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(termo)}&limit=5&lang=pt`;
+            const resposta = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) });
+            if (!resposta.ok) throw new Error('O serviço de localização não respondeu.');
+            const dados = await resposta.json();
+            const candidatos = (dados.features || []).filter(f => {
+                const p = f.properties || {};
+                const pais = String(p.country || '').toLowerCase();
+                return pais.includes('brasil') || pais.includes('brazil') || String(p.countrycode || '').toLowerCase() === 'br';
+            });
+            const ufNormalizada = normalizarCidadeGeo(estadoCompleto);
+            const escolhido = candidatos.find(f => {
+                const estadoResultado = normalizarCidadeGeo(f.properties?.state || '');
+                return estadoResultado === ufNormalizada || estadoResultado.includes(ufNormalizada) || estadoResultado === normalizarCidadeGeo(ufCanonica);
+            });
+            if (!escolhido?.geometry?.coordinates) throw new Error(`Não foi possível localizar ${consulta}. Confira a cidade e a UF.`);
+            const [lon, lat] = escolhido.geometry.coordinates;
+            const ponto = { lat: Number(lat), lon: Number(lon) };
+            cacheGeoLocalizador[chave] = ponto;
+            try { localStorage.setItem('cacheGeoTecnicosBR', JSON.stringify(cacheGeoLocalizador)); } catch (_) {}
+            return ponto;
+        }
+
+        async function executarEmLotes(lista, limite, tarefa, aoConcluir) {
+            let proximo = 0;
+            const trabalhadores = Array.from({ length: Math.min(limite, lista.length) }, async () => {
+                while (true) {
+                    const indice = proximo++;
+                    if (indice >= lista.length) return;
+                    await tarefa(lista[indice], indice);
+                    if (aoConcluir) aoConcluir(indice + 1);
+                }
+            });
+            await Promise.all(trabalhadores);
+        }
+
+        function distanciaKmHaversine(a, b) {
+            const rad = graus => graus * Math.PI / 180;
+            const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+            const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+            return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+        }
+
+        // Consulta distâncias rodoviárias reais (perfil driving) por matriz OSRM.
+        // Lotes pequenos respeitam o limite prático do serviço público e evitam URLs excessivas.
+        async function calcularDistanciasCarroLocalizador(origem, destinos, aoConcluir) {
+            const resultado = new Map();
+            const chavePonto = p => `${Number(p.lon).toFixed(5)},${Number(p.lat).toFixed(5)}`;
+            const origemChave = chavePonto(origem);
+            const faltantes = [];
+            destinos.forEach(item => {
+                const chave = `${origemChave}|${chavePonto(item.ponto)}`;
+                if (Number.isFinite(cacheRotasLocalizador[chave])) resultado.set(item.chave, cacheRotasLocalizador[chave]);
+                else faltantes.push({ ...item, cacheKey: chave });
+            });
+            const tamanhoLote = 40;
+            for (let inicio = 0; inicio < faltantes.length; inicio += tamanhoLote) {
+                const lote = faltantes.slice(inicio, inicio + tamanhoLote);
+                const coordenadas = [origem, ...lote.map(x => x.ponto)]
+                    .map(p => `${Number(p.lon)},${Number(p.lat)}`).join(';');
+                const url = `${URL_SERVICO_ROTAS_LOCALIZADOR}${coordenadas}?sources=0&destinations=${lote.map((_, i) => i + 1).join(';')}&annotations=distance,duration`;
+                const resposta = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(25000) });
+                if (!resposta.ok) throw new Error('O serviço de cálculo de rotas por carro não respondeu. Tente novamente em instantes.');
+                const dados = await resposta.json();
+                if (dados.code !== 'Ok' || !Array.isArray(dados.distances?.[0])) throw new Error('Não foi possível obter as distâncias rodoviárias para todas as localidades.');
+                lote.forEach((item, i) => {
+                    const metros = dados.distances[0][i];
+                    if (Number.isFinite(metros)) {
+                        const km = metros / 1000;
+                        resultado.set(item.chave, km);
+                        cacheRotasLocalizador[item.cacheKey] = km;
+                    }
+                });
+                try { localStorage.setItem('cacheRotasTecnicosBR_v1', JSON.stringify(cacheRotasLocalizador)); } catch (_) {}
+                if (aoConcluir) aoConcluir(Math.min(inicio + tamanhoLote, faltantes.length), faltantes.length);
+                if (inicio + tamanhoLote < faltantes.length) await new Promise(resolve => setTimeout(resolve, 1100));
+            }
+            return resultado;
+        }
+
+        function escaparHtmlLocalizador(valor) {
+            return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function urlRotaGoogleMaps(origem, destino) {
+            return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origem)}&destination=${encodeURIComponent(destino)}&travelmode=driving`;
+        }
+
+        window.buscarTecnicosProximos = async function(event) {
+            event.preventDefault();
+            const cidadeCliente = document.getElementById('cidadeCliente').value.trim();
+            const ufCliente = document.getElementById('estadoCliente').value;
+            const status = document.getElementById('statusLocalizador');
+            const resultados = document.getElementById('resultadosLocalizador');
+            const resumo = document.getElementById('resumoLocalizador');
+            const botao = document.getElementById('btnBuscarTecnicosProximos');
+            if (!cidadeCliente || !ufCliente) return;
+            if (!dadosTecnicos.length) {
+                resultados.innerHTML = '<div class="alert alert-warning">Não há técnicos cadastrados para localizar.</div>';
+                return;
+            }
+
+            botao.disabled = true;
+            botao.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Localizando...';
+            resultados.innerHTML = '';
+            resumo.textContent = '';
+            try {
+                status.textContent = 'Carregando a base brasileira de cidades (somente na primeira utilização)...';
+                await carregarBaseMunicipiosBR();
+                status.textContent = 'Preparando cálculo das rotas por carro...';
+                const origemPonto = await geocodificarCidadeBR(cidadeCliente, ufCliente);
+                const origemTexto = `${cidadeCliente}, ${ufCliente}, Brasil`;
+                // Regra simplificada: considerar exclusivamente técnicos do mesmo estado do cliente.
+                const ufClienteNormalizada = normalizarUFLocalizador(ufCliente);
+                const tecnicosMesmoEstado = dadosTecnicos.filter(t => t && t.nome && t.cidade && t.cidade !== '-' && t.estado && t.estado !== '-' && normalizarUFLocalizador(t.estado) === ufClienteNormalizada);
+                const tecnicosValidos = tecnicosMesmoEstado;
+                const cidades = [...new Map(tecnicosValidos.map(t => [chaveCidadeGeo(t.cidade, t.estado), {cidade:t.cidade, estado:ufClienteNormalizada}])).values()];
+                const pontos = {};
+                let processadas = 0;
+                const pendentes = cidades.filter(local => !indiceMunicipiosBR.has(chaveCidadeGeo(local.cidade, local.estado)) && !cacheGeoLocalizador[chaveCidadeGeo(local.cidade, local.estado)]);
+                // Aproveita o cache local e consulta apenas cidades ainda não conhecidas, em até 4 frentes.
+                cidades.forEach(local => {
+                    const chave = chaveCidadeGeo(local.cidade, local.estado);
+                    const pontoBase = indiceMunicipiosBR.get(chave);
+                    if (pontoBase) pontos[chave] = pontoBase;
+                    else if (cacheGeoLocalizador[chave]) pontos[chave] = cacheGeoLocalizador[chave];
+                });
+                status.textContent = pendentes.length
+                    ? `Complementando coordenadas de ${pendentes.length} localidades fora da base municipal...`
+                    : 'Base municipal carregada. Calculando distâncias...';
+                await executarEmLotes(pendentes, 4, async local => {
+                    const chave = chaveCidadeGeo(local.cidade, local.estado);
+                    try {
+                        pontos[chave] = await geocodificarCidadeBR(local.cidade, local.estado);
+                    } catch (erroGeo) {
+                        console.warn('Cidade não localizada:', local, erroGeo);
+                    }
+                }, concluidas => {
+                    processadas = concluidas;
+                    status.textContent = `Localizando cidades: ${processadas} de ${pendentes.length} localidades novas...`;
+                });
+
+                const destinosUnicos = [...new Map(tecnicosValidos.map(t => {
+                    const chave = chaveCidadeGeo(t.cidade, t.estado);
+                    return [chave, { chave, ponto: pontos[chave] }];
+                }).filter(([, item]) => !!item.ponto)).values()];
+                status.textContent = 'Calculando distâncias reais por carro...';
+                const distanciasPorCidade = await calcularDistanciasCarroLocalizador(origemPonto, destinosUnicos, (feitas, total) => {
+                    status.textContent = `Calculando rotas por carro: ${feitas} de ${total} localidades...`;
+                });
+                const calculados = tecnicosValidos.map(t => {
+                    const chave = chaveCidadeGeo(t.cidade, t.estado);
+                    const distancia = distanciasPorCidade.get(chave);
+                    if (!Number.isFinite(distancia)) return null;
+                    return { tecnico:t, distancia, mesmoEstado:true };
+                }).filter(Boolean);
+                // O limite de 350 km é aplicado à distância da rota rodoviária.
+                const dentroDoRaio = calculados.filter(x => x.distancia <= DISTANCIA_MAXIMA_LOCALIZADOR_KM);
+                const ordenados = dentroDoRaio.sort((a,b) => a.distancia-b.distancia);
+
+                if (!ordenados.length) {
+                    if (calculados.length) {
+                        resumo.textContent = `Nenhum técnico foi encontrado dentro do limite de ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km.`;
+                        resultados.innerHTML = `<div class="alert alert-warning">Não há técnicos do estado ${escaparHtmlLocalizador(ufClienteNormalizada)} a até ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km por estrada de ${escaparHtmlLocalizador(origemTexto)}. Técnicos de outros estados não são pesquisados.</div>`;
+                    } else {
+                        resumo.textContent = `Não foi possível calcular a localização de nenhum técnico. Confira se os cadastros possuem cidade e UF válidas.`;
+                        resultados.innerHTML = `<div class="alert alert-warning">Nenhum técnico com cidade e UF válidas foi encontrado no estado ${escaparHtmlLocalizador(ufClienteNormalizada)}.</div>`;
+                    }
+                } else {
+                    resumo.textContent = `${ordenados.length} técnico(s) do estado ${ufClienteNormalizada} listado(s) em até ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km por carro, em ordem de menor distância rodoviária.`;
+                    resultados.innerHTML = ordenados.map((item, indice) => {
+                        const t = item.tecnico;
+                        const localDestino = `${t.cidade}, ${t.estado}, Brasil`;
+                        const rota = urlRotaGoogleMaps(origemTexto, localDestino);
+                        const classe = item.mesmoEstado ? 'estado-cliente' : '';
+                        const selo = '<span class="badge bg-success">Mesmo estado do cliente</span>';
+                        const numeroWhatsApp = t.tel && t.tel !== '-' ? String(t.tel).replace(/\D/g, '') : '';
+                        const numeroWhatsAppBR = numeroWhatsApp && !numeroWhatsApp.startsWith('55') ? `55${numeroWhatsApp}` : numeroWhatsApp;
+                        const telefone = numeroWhatsAppBR ? `<a class="link-success text-decoration-none fw-semibold" href="https://wa.me/${numeroWhatsAppBR}" target="_blank" rel="noopener noreferrer" title="Conversar pelo WhatsApp"><i class="fab fa-whatsapp me-1"></i>${escaparHtmlLocalizador(t.tel)}</a>` : 'Telefone não informado';
+                        return `<article class="resultado-tecnico ${classe}"><div class="d-flex flex-wrap justify-content-between align-items-start gap-2"><div><div class="fw-bold">${indice+1}. ${escaparHtmlLocalizador(t.nome)}</div><div class="small text-muted">${escaparHtmlLocalizador(t.empresa || '')}</div></div><div class="resultado-distancia">${item.distancia.toFixed(1).replace('.', ',')} km</div></div><div class="my-2">${selo}</div><div class="small mb-2"><i class="fas fa-map-marker-alt text-danger me-1"></i>${escaparHtmlLocalizador(localDestino)} <span class="mx-2">•</span> ${telefone}</div><a class="btn btn-outline-primary btn-sm" href="${rota}" target="_blank" rel="noopener noreferrer"><i class="fas fa-route me-1"></i>Abrir rota no Google Maps</a></article>`;
+                    }).join('');
+                }
+                const ignorados = tecnicosValidos.length - calculados.length;
+                const foraDoRaio = calculados.length - dentroDoRaio.length;
+                const avisos = [];
+                const totalOutrosEstados = dadosTecnicos.filter(t => t && t.nome && t.estado && t.estado !== '-' && normalizarUFLocalizador(t.estado) !== ufClienteNormalizada).length;
+                if (totalOutrosEstados) avisos.push(`${totalOutrosEstados} técnico(s) de outros estados não foram pesquisados`);
+                if (foraDoRaio) avisos.push(`${foraDoRaio} técnico(s) acima de ${DISTANCIA_MAXIMA_LOCALIZADOR_KM} km por estrada foram ocultados`);
+                if (ignorados) {
+                    const cidadesSemCoordenadas = [...new Map(tecnicosValidos
+                        .filter(t => !pontos[chaveCidadeGeo(t.cidade, t.estado)])
+                        .map(t => [chaveCidadeGeo(t.cidade, t.estado), `${t.cidade}/${normalizarUFLocalizador(t.estado)}`]))
+                        .values()];
+                    avisos.push(`${ignorados} técnico(s) não calculados; localidades sem coordenadas: ${cidadesSemCoordenadas.join(', ')}`);
+                }
+                status.textContent = avisos.length ? `Busca concluída. ${avisos.join('; ')}.` : 'Busca concluída.';
+            } catch (erro) {
+                console.error(erro);
+                status.textContent = erro.message || 'Ocorreu um erro ao localizar os técnicos.';
+                resultados.innerHTML = '<div class="alert alert-danger">Não foi possível concluir a busca. Verifique sua conexão e tente novamente.</div>';
+            } finally {
+                botao.disabled = false;
+                botao.innerHTML = '<i class="fas fa-search-location me-2"></i>Buscar técnicos';
+            }
+        };
+
+        document.getElementById('formLocalizador').addEventListener('submit', window.buscarTecnicosProximos);
+
+        // ==========================================
+        // AUXILIARES DE FORMATAÇÃO EXCEL
+        // ==========================================
+        function normalizar(txt) {
+            return String(txt || '').trim().toUpperCase();
+        }
+
+        // Códigos são identificadores textuais, nunca valores monetários.
+        // Remove somente eventual símbolo R$ legado, preservando o restante como texto.
+        function normalizarCodigoTexto(valor) {
+            if (valor === undefined || valor === null || valor === '') return '-';
+            return String(valor).trim().replace(/^R\$\s*/i, '') || '-';
+        }
+
+        function formatarCelulaExcel(val, isData = false) {
+            if (val === undefined || val === null || String(val).trim() === '') return '-';
+            if (isData && typeof val === 'number' && val > 20000 && val < 80000) {
+                const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+                const d = String(date.getUTCDate()).padStart(2, '0');
+                const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const y = String(date.getUTCFullYear()).slice(-2);
+                return `${d}/${m}/${y}`;
+            }
+            return String(val).trim();
+        }
+
+        // ==========================================
+        // MÓDULO 1: TÉCNICOS
+        // ==========================================
+        function padronizarUF(val) {
+            const s = normalizar(val);
+            if (s.length === 2) return s;
+            const ufs = { 'SAO PAULO': 'SP', 'RIO DE JANEIRO': 'RJ', 'MINAS GERAIS': 'MG', 'PARANA': 'PR', 'SANTA CATARINA': 'SC', 'RIO GRANDE DO SUL': 'RS', 'BAHIA': 'BA', 'CEARA': 'CE', 'PARA': 'PA', 'AMAZONAS': 'AM', 'GOIAS': 'GO', 'DISTRITO FEDERAL': 'DF', 'MATO GROSSO': 'MT', 'MATO GROSSO DO SUL': 'MS', 'ALAGOAS': 'AL', 'RIO GRANDE DO NORTE': 'RN', 'PARAIBA': 'PB', 'PERNAMBUCO': 'PE', 'ESPIRITO SANTO': 'ES', 'TOCANTINS': 'TO', 'PIAUÍ': 'PI', 'AMAPA': 'AP', 'RORAIMA': 'RR', 'ACRE': 'AC', 'RONDONIA': 'RO', 'SERGIPE': 'SE' };
+            return ufs[s] || s || '-';
+        }
+
+        function padronizarTipo(val, banco = '') {
+            const s = normalizar(val);
+            if (s.includes('PJ') || s.includes('JURIDICA') || s.includes('CNPJ')) return 'PJ';
+            if (s.includes('PF') || s.includes('FISICA') || s.includes('CPF')) return 'PF';
+            const b = normalizar(banco);
+            if (b.includes('/') || b.length > 20) return 'PJ';
+            return 'PJ';
+        }
+
+        function atualizarDropdownEstados() {
+            const filterEstado = document.getElementById('filterEstado');
+            const valorAtual = filterEstado.value;
+            const estadosUnicos = [...new Set(dadosTecnicos.map(i => i.estado).filter(uf => uf && uf !== '-'))].sort();
+            filterEstado.innerHTML = '<option value="">Todos os Estados</option>';
+            estadosUnicos.forEach(uf => {
+                const opt = document.createElement('option');
+                opt.value = uf;
+                opt.textContent = uf;
+                filterEstado.appendChild(opt);
+            });
+            if (estadosUnicos.includes(valorAtual)) filterEstado.value = valorAtual;
+        }
+
+        function filtrarTecnicos() {
+            const termo = document.getElementById('searchNome').value.toLowerCase().trim();
+            const tipoSel = document.getElementById('filterTipo').value;
+            const estadoSel = document.getElementById('filterEstado').value;
+
+            const filtrados = dadosTecnicos.filter(item => {
+                const matchTexto = item.nome.toLowerCase().includes(termo) || item.empresa.toLowerCase().includes(termo) || item.banco.toLowerCase().includes(termo) || item.cidade.toLowerCase().includes(termo);
+                const matchTipo = tipoSel === "" || item.tipo === tipoSel;
+                const matchEstado = estadoSel === "" || item.estado === estadoSel;
+                return matchTexto && matchTipo && matchEstado;
+            });
+
+            const tbody = document.getElementById('tbodyTecnicos');
+            tbody.innerHTML = '';
+            const colspanTotal = isAdmin ? 10 : 9;
+
+            if (filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${colspanTotal}" class="text-center py-4 text-muted">Nenhum técnico encontrado.</td></tr>`;
+                document.getElementById('contadorTecnicos').textContent = dadosTecnicos.length === 0 ? 'Nenhum técnico cadastrado' : `0 de ${dadosTecnicos.length} registros`;
+                return;
+            }
+
+            filtrados.forEach(item => {
+                const idx = dadosTecnicos.indexOf(item);
+                const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
+                const numeroWhatsApp = item.tel && item.tel !== '-' ? String(item.tel).replace(/\D/g, '') : '';
+                const numeroWhatsAppBR = numeroWhatsApp && !numeroWhatsApp.startsWith('55') ? `55${numeroWhatsApp}` : numeroWhatsApp;
+                const telFormatado = numeroWhatsAppBR
+                    ? `<a href="https://wa.me/${numeroWhatsAppBR}" target="_blank" rel="noopener noreferrer" title="Conversar pelo WhatsApp" class="text-decoration-none text-success fw-semibold"><i class="fab fa-whatsapp me-1 small"></i>${item.tel}</a>`
+                    : '-';
+
+                const tdAcoes = isAdmin 
+                    ? `<td class="text-nowrap">
+                         <button class="btn btn-outline-primary btn-sm me-1" onclick="prepararEdicaoTec(${idx})" title="Editar"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-outline-danger btn-sm" onclick="removerItem('tecnicos', ${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                       </td>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold">${item.nome}</td>
+                    <td>${item.empresa}</td>
+                    <td class="small" style="color: #adb5bd !important;">${item.banco}</td>
+                    <td><span class="badge ${badgeClass}">${item.tipo}</span></td>
+                    <td>${item.cidade}</td>
+                    <td><span class="badge bg-secondary badge-estado">${item.estado}</span></td>
+                    <td class="fw-semibold text-success">${item.fat}</td>
+                    <td style="color: #adb5bd !important;">${item.envio}</td>
+                    <td>${telFormatado}</td>
+                    ${tdAcoes}
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('contadorTecnicos').textContent = `Mostrando ${filtrados.length} de ${dadosTecnicos.length} técnicos`;
+        }
+
+        window.prepararEdicaoTec = function(idx) {
+            if (!isAdmin) return;
+            const item = dadosTecnicos[idx];
+            document.getElementById('editIndexTec').value = idx;
+            document.getElementById('novoNome').value = item.nome !== '-' ? item.nome : '';
+            document.getElementById('novaEmpresa').value = item.empresa !== '-' ? item.empresa : '';
+            document.getElementById('novoBanco').value = item.banco !== '-' ? item.banco : '';
+            document.getElementById('novoTipo').value = item.tipo === 'PF' ? 'PF' : 'PJ';
+            document.getElementById('novaCidade').value = item.cidade !== '-' ? item.cidade : '';
+            document.getElementById('novoEstado').value = item.estado !== '-' ? item.estado : '';
+            document.getElementById('novoTel').value = item.tel !== '-' ? item.tel : '';
+            document.getElementById('novoFat').value = item.fat !== '-' ? item.fat : '';
+            document.getElementById('novoEnvio').value = item.envio !== '-' ? item.envio : '';
+
+            document.getElementById('formTituloTec').innerHTML = `<i class="fas fa-user-edit me-2"></i>Editar Técnico (#${idx + 1})`;
+            document.getElementById('btnSalvarTec').innerHTML = `<i class="fas fa-save me-1"></i> Salvar Alterações`;
+            document.getElementById('btnCancelarTec').classList.remove('d-none');
+            document.getElementById('formNovoTecnico').scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.cancelarEdicaoTec = function() {
+            document.getElementById('editIndexTec').value = '-1';
+            document.getElementById('formNovoTecnico').reset();
+            document.getElementById('formTituloTec').innerHTML = `<i class="fas fa-user-plus me-2"></i>Inserir Novo Técnico`;
+            document.getElementById('btnSalvarTec').innerHTML = `<i class="fas fa-save me-1"></i> Adicionar Técnico`;
+            document.getElementById('btnCancelarTec').classList.add('d-none');
+        };
+
+        document.getElementById('formNovoTecnico').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!isAdmin) return;
+            const editIdx = parseInt(document.getElementById('editIndexTec').value);
+            const banco = document.getElementById('novoBanco').value.trim();
+
+            const obj = {
+                nome: document.getElementById('novoNome').value.trim().toUpperCase(),
+                empresa: document.getElementById('novaEmpresa').value.trim().toUpperCase(),
+                banco: banco,
+                tipo: padronizarTipo(document.getElementById('novoTipo').value, banco),
+                cidade: document.getElementById('novaCidade').value.trim().toUpperCase(),
+                estado: padronizarUF(document.getElementById('novoEstado').value),
+                fat: normalizarCodigoTexto(document.getElementById('novoFat').value),
+                envio: normalizarCodigoTexto(document.getElementById('novoEnvio').value),
+                tel: document.getElementById('novoTel').value.trim() || '-'
+            };
+
+            if (editIdx >= 0) {
+                dadosTecnicos[editIdx] = obj;
+                cancelarEdicaoTec();
+            } else {
+                dadosTecnicos.unshift(obj);
+                this.reset();
+            }
+            salvarNoFirebase('tecnicos', dadosTecnicos);
+        });
+
+        function extrairListaTecnicos(worksheet) {
+            const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: '', raw: false});
+            let startRow = 0;
+            for (let i = 0; i < Math.min(10, rows.length); i++) {
+                const rowStr = rows[i].map(c => normalizar(c)).join(' ');
+                if (rowStr.includes('NOME') || rowStr.includes('EMPRESA')) { startRow = i + 1; break; }
+            }
+            if (startRow === 0 && rows.length > 1) startRow = 1;
+
+            const lista = [];
+            for (let r = startRow; r < rows.length; r++) {
+                const row = rows[r];
+                if (!row || row.length === 0) continue;
+                const nome = formatarCelulaExcel(row[0]);
+                const empresa = formatarCelulaExcel(row[1]);
+                if (nome === '-' && empresa === '-') continue;
+                if (normalizar(nome) === 'NOME' || normalizar(nome) === 'TECNICO' || normalizar(nome) === 'TÉCNICO') continue;
+
+                const banco = formatarCelulaExcel(row[2]);
+                lista.push({
+                    nome: nome.toUpperCase(),
+                    empresa: empresa.toUpperCase(),
+                    banco: banco,
+                    tipo: padronizarTipo(formatarCelulaExcel(row[3]), banco),
+                    cidade: formatarCelulaExcel(row[4]).toUpperCase(),
+                    estado: padronizarUF(formatarCelulaExcel(row[5])),
+                    fat: normalizarCodigoTexto(row[6]),
+                    envio: normalizarCodigoTexto(row[7]),
+                    tel: formatarCelulaExcel(row[8])
+                });
+            }
+            return lista;
+        }
+
+        window.processarPlanilhaTecnicos = function(e) {
+            if (!isAdmin) return;
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                    const sheetName = workbook.SheetNames.find(n => normalizar(n).includes('TECNICO') || normalizar(n).includes('TÉCNICO') || normalizar(n).includes('CONTA')) || workbook.SheetNames[0];
+                    const lista = extrairListaTecnicos(workbook.Sheets[sheetName]);
+                    if (lista.length > 0) {
+                        salvarNoFirebase('tecnicos', lista);
+                        alert(`Sucesso! ${lista.length} técnicos importados da guia "${sheetName}".`);
+                    } else {
+                        alert("Nenhum técnico válido encontrado na planilha.");
+                    }
+                } catch (err) {
+                    alert("Erro ao ler o arquivo. Verifique se a planilha não está protegida com senha.");
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // ==========================================
+        // MÓDULO 2 & 3: ENVIOS E RETORNOS (A até L)
+        // ==========================================
+        function atualizarDropdownTecnicos(tipo) {
+            const lista = tipo === 'envios' ? dadosEnvios : dadosRetornos;
+            const select = document.getElementById(tipo === 'envios' ? 'filterEnvTecnico' : 'filterRetTecnico');
+            const atual = select.value;
+            const tecs = [...new Set(lista.map(i => i.tecnico).filter(t => t && t !== '-'))].sort();
+            select.innerHTML = '<option value="">Todos os Técnicos</option>';
+            tecs.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                select.appendChild(opt);
+            });
+            if (tecs.includes(atual)) select.value = atual;
+        }
+
+        function atualizarSelectOsEnvio() {
+            const datalist = document.getElementById('listaOsEnvios');
+            datalist.innerHTML = '';
+            dadosEnvios.forEach((env, idx) => {
+                if (env.os && env.os !== '-') {
+                    const opt = document.createElement('option');
+                    opt.value = env.os;
+                    opt.textContent = `${env.tecnico} - Cliente: ${env.cliente}`;
+                    datalist.appendChild(opt);
+                }
+            });
+        }
+
+        // Preenche automaticamente quando o usuário digita ou seleciona a O.S.
+        window.verificarBuscaOsEnvio = function(valorDigitado) {
+            const osBusca = valorDigitado.trim().toUpperCase();
+            const env = dadosEnvios.find(e => e.os && e.os.toUpperCase() === osBusca);
+            if (env) {
+                document.getElementById('retTecnico').value = env.tecnico !== '-' ? env.tecnico : '';
+                document.getElementById('retDtForno').value = env.dtForno !== '-' ? env.dtForno : '';
+                document.getElementById('retNf').value = env.nf !== '-' ? env.nf : '';
+                document.getElementById('retModelo').value = env.modelo !== '-' ? env.modelo : '';
+                document.getElementById('retOs').value = env.os !== '-' ? env.os : '';
+                document.getElementById('retCliente').value = env.cliente !== '-' ? env.cliente : '';
+                document.getElementById('retPecas').value = env.pecas !== '-' ? env.pecas : '';
+            }
+        };
+
+        function renderizarTabelaLogistica(tipo) {
+            const isEnvio = tipo === 'envios';
+            const lista = isEnvio ? dadosEnvios : dadosRetornos;
+            const termo = document.getElementById(isEnvio ? 'searchEnvio' : 'searchRetorno').value.toLowerCase().trim();
+            const tecSel = document.getElementById(isEnvio ? 'filterEnvTecnico' : 'filterRetTecnico').value;
+            const prefixo = isEnvio ? 'chkEnv' : 'chkRet';
+            const statusPermitidos = [];
+            if (document.getElementById(`${prefixo}Sim`).checked) statusPermitidos.push('SIM');
+            if (document.getElementById(`${prefixo}Nao`).checked) {
+                statusPermitidos.push('NAO');
+                statusPermitidos.push('NÃO');
+            }
+            if (document.getElementById(`${prefixo}Ok`).checked) statusPermitidos.push('OK');
+
+            const filtrados = lista.filter(item => {
+                const matchTexto = 
+                    (item.os || '').toLowerCase().includes(termo) ||
+                    (item.cliente || '').toLowerCase().includes(termo) ||
+                    (item.tecnico || '').toLowerCase().includes(termo) ||
+                    (item.pecas || '').toLowerCase().includes(termo) ||
+                    (item.rastreio || '').toLowerCase().includes(termo) ||
+                    (item.nf || '').toLowerCase().includes(termo);
+                const matchTec = tecSel === '' || item.tecnico === tecSel;
+                const statusItem = normalizar(item.chegou) || 'SIM';
+                const matchStatus = statusPermitidos.includes(statusItem);
+                return matchTexto && matchTec && matchStatus;
+            });
+
+            const tbody = document.getElementById(isEnvio ? 'tbodyEnvios' : 'tbodyRetornos');
+            tbody.innerHTML = '';
+            const colspanTotal = isAdmin ? 13 : 12;
+
+            if (filtrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${colspanTotal}" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>`;
+                document.getElementById(isEnvio ? 'contadorEnvios' : 'contadorRetornos').textContent = lista.length === 0 ? 'Nenhum registro cadastrado' : `0 de ${lista.length} registros`;
+                return;
+            }
+
+            filtrados.forEach(item => {
+                const idx = lista.indexOf(item);
+                const st = normalizar(item.chegou) || 'SIM';
+                let badgeClass = 'bg-success';
+                if (st === 'NAO' || st === 'NÃO') badgeClass = 'bg-danger';
+                else if (st === 'OK') badgeClass = 'bg-secondary';
+                const badgeStatus = `<span class="badge ${badgeClass}">${st}</span>`;
+
+                const fnEdit = isEnvio ? `prepararEdicaoEnv(${idx})` : `prepararEdicaoRet(${idx})`;
+                const fnToggle = `alternarStatusChegou('${tipo}', ${idx})`;
+                const tdAcoes = isAdmin 
+                    ? `<td class="text-nowrap">
+                         <button class="btn btn-outline-success btn-sm me-1" onclick="${fnToggle}" title="Alternar OK / Pendente"><i class="fas fa-check"></i></button>
+                         <button class="btn btn-outline-primary btn-sm me-1" onclick="${fnEdit}" title="Editar"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-outline-danger btn-sm" onclick="removerItem('${tipo}', ${idx})" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                       </td>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.dataPed}</td>
+                    <td class="fw-bold text-info">${item.tecnico}</td>
+                    <td>${item.dtForno}</td>
+                    <td>${item.nf}</td>
+                    <td>${item.modelo}</td>
+                    <td>${item.pedido}</td>
+                    <td class="fw-bold text-warning">${item.os}</td>
+                    <td>${item.cliente}</td>
+                    <td class="fw-semibold">${item.pecas}</td>
+                    <td class="small" style="color: #adb5bd !important;">${item.rastreio}</td>
+                    <td>${item.previsao}</td>
+                    <td>${badgeStatus}</td>
+                    ${tdAcoes}
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById(isEnvio ? 'contadorEnvios' : 'contadorRetornos').textContent = `Mostrando ${filtrados.length} de ${lista.length} registros`;
+        }
+
+        window.filtrarEnvios = function() { renderizarTabelaLogistica('envios'); };
+        window.filtrarRetornos = function() { renderizarTabelaLogistica('retornos'); };
+
+        window.alternarStatusChegou = function(tipo, idx) {
+            if (!isAdmin) return;
+            const lista = tipo === 'envios' ? dadosEnvios : dadosRetornos;
+            const atual = normalizar(lista[idx].chegou);
+            let proximo = 'NAO';
+            if (atual === 'SIM') proximo = 'NAO';
+            else if (atual === 'NAO' || atual === 'NÃO') proximo = 'OK';
+            else proximo = 'SIM';
+            lista[idx].chegou = proximo;
+            salvarNoFirebase(tipo, lista);
+        };
+
+        window.removerItem = function(tipo, idx) {
+            if (!isAdmin) return;
+            if (confirm("Deseja realmente excluir este registro?")) {
+                const lista = tipo === 'tecnicos' ? dadosTecnicos : (tipo === 'envios' ? dadosEnvios : dadosRetornos);
+                lista.splice(idx, 1);
+                salvarNoFirebase(tipo, lista);
+            }
+        };
+
+        // Formulário de Envios
+        window.prepararEdicaoEnv = function(idx) {
+            if (!isAdmin) return;
+            const item = dadosEnvios[idx];
+            document.getElementById('editIndexEnv').value = idx;
+            document.getElementById('envDataPed').value = item.dataPed !== '-' ? item.dataPed : '';
+            document.getElementById('envTecnico').value = item.tecnico !== '-' ? item.tecnico : '';
+            document.getElementById('envDtForno').value = item.dtForno !== '-' ? item.dtForno : '';
+            document.getElementById('envNf').value = item.nf !== '-' ? item.nf : '';
+            document.getElementById('envModelo').value = item.modelo !== '-' ? item.modelo : '';
+            document.getElementById('envPedido').value = item.pedido !== '-' ? item.pedido : '';
+            document.getElementById('envOs').value = item.os !== '-' ? item.os : '';
+            document.getElementById('envCliente').value = item.cliente !== '-' ? item.cliente : '';
+            document.getElementById('envPecas').value = item.pecas !== '-' ? item.pecas : '';
+            document.getElementById('envRastreio').value = item.rastreio !== '-' ? item.rastreio : '';
+            document.getElementById('envPrevisao').value = item.previsao !== '-' ? item.previsao : '';
+            document.getElementById('envChegou').value = (normalizar(item.chegou) === 'NAO' || normalizar(item.chegou) === 'NÃO') ? 'NAO' : (normalizar(item.chegou) === 'OK' ? 'OK' : 'SIM');
+            document.getElementById('chkCriarRetorno').checked = false;
+
+            document.getElementById('formTituloEnv').innerHTML = `<i class="fas fa-edit me-2"></i>Editar Envio (O.S. ${item.os})`;
+            document.getElementById('btnSalvarEnv').innerHTML = `<i class="fas fa-save me-1"></i> Atualizar Envio`;
+            document.getElementById('btnCancelarEnv').classList.remove('d-none');
+            document.getElementById('formNovoEnvio').scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.cancelarEdicaoEnv = function() {
+            document.getElementById('editIndexEnv').value = '-1';
+            document.getElementById('formNovoEnvio').reset();
+            document.getElementById('chkCriarRetorno').checked = true;
+            document.getElementById('formTituloEnv').innerHTML = `<i class="fas fa-plus-circle me-2"></i>Novo Lançamento de Envio`;
+            document.getElementById('btnSalvarEnv').innerHTML = `<i class="fas fa-save me-1"></i> Salvar Envio`;
+            document.getElementById('btnCancelarEnv').classList.add('d-none');
+        };
+
+        document.getElementById('formNovoEnvio').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!isAdmin) return;
+            const editIdx = parseInt(document.getElementById('editIndexEnv').value);
+            const gerarRetorno = document.getElementById('chkCriarRetorno').checked;
+
+            const obj = {
+                dataPed: document.getElementById('envDataPed').value.trim().toUpperCase() || '-',
+                tecnico: document.getElementById('envTecnico').value.trim().toUpperCase() || '-',
+                dtForno: document.getElementById('envDtForno').value.trim().toUpperCase() || '-',
+                nf: document.getElementById('envNf').value.trim().toUpperCase() || '-',
+                modelo: document.getElementById('envModelo').value.trim().toUpperCase() || '-',
+                pedido: document.getElementById('envPedido').value.trim().toUpperCase() || '-',
+                os: document.getElementById('envOs').value.trim().toUpperCase() || '-',
+                cliente: document.getElementById('envCliente').value.trim().toUpperCase() || '-',
+                pecas: document.getElementById('envPecas').value.trim().toUpperCase() || '-',
+                rastreio: document.getElementById('envRastreio').value.trim().toUpperCase() || '-',
+                previsao: document.getElementById('envPrevisao').value.trim().toUpperCase() || '?',
+                chegou: document.getElementById('envChegou').value
+            };
+
+            if (editIdx >= 0) {
+                dadosEnvios[editIdx] = obj;
+                // Sincroniza colunas B, C, D, E, G, H, I no Retorno correspondente (se existir pela O.S.)
+                const retVinculado = dadosRetornos.find(r => r.os === obj.os && obj.os !== '-');
+                if (retVinculado) {
+                    retVinculado.tecnico = obj.tecnico;
+                    retVinculado.dtForno = obj.dtForno;
+                    retVinculado.nf = obj.nf;
+                    retVinculado.modelo = obj.modelo;
+                    retVinculado.cliente = obj.cliente;
+                    retVinculado.pecas = obj.pecas;
+                    salvarNoFirebase('retornos', dadosRetornos);
+                }
+                cancelarEdicaoEnv();
+            } else {
+                dadosEnvios.unshift(obj);
+                if (gerarRetorno) {
+                    const objRetorno = {
+                        dataPed: obj.dataPed,
+                        tecnico: obj.tecnico,
+                        dtForno: obj.dtForno,
+                        nf: obj.nf,
+                        modelo: obj.modelo,
+                        pedido: '-',
+                        os: obj.os,
+                        cliente: obj.cliente,
+                        pecas: obj.pecas,
+                        rastreio: '?',
+                        previsao: '?',
+                        chegou: 'SIM'
+                    };
+                    dadosRetornos.unshift(objRetorno);
+                    salvarNoFirebase('retornos', dadosRetornos);
+                }
+                this.reset();
+                document.getElementById('chkCriarRetorno').checked = true;
+            }
+            salvarNoFirebase('envios', dadosEnvios);
+        });
+
+        // Formulário de Retornos
+        window.prepararEdicaoRet = function(idx) {
+            if (!isAdmin) return;
+            const item = dadosRetornos[idx];
+            document.getElementById('editIndexRet').value = idx;
+            document.getElementById('retDataPed').value = item.dataPed !== '-' ? item.dataPed : '';
+            document.getElementById('retTecnico').value = item.tecnico !== '-' ? item.tecnico : '';
+            document.getElementById('retDtForno').value = item.dtForno !== '-' ? item.dtForno : '';
+            document.getElementById('retNf').value = item.nf !== '-' ? item.nf : '';
+            document.getElementById('retModelo').value = item.modelo !== '-' ? item.modelo : '';
+            document.getElementById('retPedido').value = item.pedido !== '-' ? item.pedido : '';
+            document.getElementById('retOs').value = item.os !== '-' ? item.os : '';
+            document.getElementById('retCliente').value = item.cliente !== '-' ? item.cliente : '';
+            document.getElementById('retPecas').value = item.pecas !== '-' ? item.pecas : '';
+            document.getElementById('retRastreio').value = item.rastreio !== '-' ? item.rastreio : '';
+            document.getElementById('retPrevisao').value = item.previsao !== '-' ? item.previsao : '';
+            document.getElementById('retChegou').value = (normalizar(item.chegou) === 'NAO' || normalizar(item.chegou) === 'NÃO') ? 'NAO' : (normalizar(item.chegou) === 'OK' ? 'OK' : 'SIM');
+
+            document.getElementById('formTituloRet').innerHTML = `<i class="fas fa-edit me-2"></i>Editar Retorno (O.S. ${item.os})`;
+            document.getElementById('btnSalvarRet').innerHTML = `<i class="fas fa-save me-1"></i> Atualizar Retorno`;
+            document.getElementById('btnCancelarRet').classList.remove('d-none');
+            document.getElementById('formNovoRetorno').scrollIntoView({ behavior: 'smooth' });
+        };
+
+        window.cancelarEdicaoRet = function() {
+            document.getElementById('editIndexRet').value = '-1';
+            document.getElementById('formNovoRetorno').reset();
+            const inputBusca = document.getElementById('retInputOsBusca');
+            if(inputBusca) inputBusca.value = '';
+            document.getElementById('formTituloRet').innerHTML = `<i class="fas fa-exchange-alt me-2"></i>Lançar / Editar Retorno de Peça`;
+            document.getElementById('btnSalvarRet').innerHTML = `<i class="fas fa-save me-1"></i> Salvar Retorno`;
+            document.getElementById('btnCancelarRet').classList.add('d-none');
+        };
+
+        document.getElementById('formNovoRetorno').addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!isAdmin) return;
+            const editIdx = parseInt(document.getElementById('editIndexRet').value);
+
+            const obj = {
+                dataPed: document.getElementById('retDataPed').value.trim().toUpperCase() || '-',
+                tecnico: document.getElementById('retTecnico').value.trim().toUpperCase() || '-',
+                dtForno: document.getElementById('retDtForno').value.trim().toUpperCase() || '-',
+                nf: document.getElementById('retNf').value.trim().toUpperCase() || '-',
+                modelo: document.getElementById('retModelo').value.trim().toUpperCase() || '-',
+                pedido: document.getElementById('retPedido').value.trim().toUpperCase() || '-',
+                os: document.getElementById('retOs').value.trim().toUpperCase() || '-',
+                cliente: document.getElementById('retCliente').value.trim().toUpperCase() || '-',
+                pecas: document.getElementById('retPecas').value.trim().toUpperCase() || '-',
+                rastreio: document.getElementById('retRastreio').value.trim().toUpperCase() || '-',
+                previsao: document.getElementById('retPrevisao').value.trim().toUpperCase() || '?',
+                chegou: document.getElementById('retChegou').value
+            };
+
+            if (editIdx >= 0) {
+                dadosRetornos[editIdx] = obj;
+                cancelarEdicaoRet();
+            } else {
+                dadosRetornos.unshift(obj);
+                this.reset();
+            }
+            salvarNoFirebase('retornos', dadosRetornos);
+        });
+
+        // Importação de Planilhas de Envio e Retorno (Colunas A até L)
+        function extrairListaLogistica(worksheet) {
+            const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: '', raw: false});
+            let startRow = 0;
+            for (let i = 0; i < Math.min(10, rows.length); i++) {
+                const rowStr = rows[i].map(c => normalizar(c)).join(' ');
+                if (rowStr.includes('TECNICO') || rowStr.includes('TÉCNICO') || rowStr.includes('CLIENTE') || rowStr.includes('O.S.')) {
+                    startRow = i + 1;
+                    break;
+                }
+            }
+            if (startRow === 0 && rows.length > 1) startRow = 1;
+
+            const lista = [];
+            for (let r = startRow; r < rows.length; r++) {
+                const row = rows[r];
+                if (!row || row.length === 0) continue;
+                const tecnico = formatarCelulaExcel(row[1]);
+                const cliente = formatarCelulaExcel(row[7]);
+                const os = formatarCelulaExcel(row[6]);
+                if (tecnico === '-' && cliente === '-' && os === '-') continue;
+                if (normalizar(tecnico) === 'TÉCNICO' || normalizar(tecnico) === 'TECNICO') continue;
+
+                lista.push({
+                    dataPed: formatarCelulaExcel(row[0], true).toUpperCase(),
+                    tecnico: tecnico.toUpperCase(),
+                    dtForno: formatarCelulaExcel(row[2], true).toUpperCase(),
+                    nf: formatarCelulaExcel(row[3]).toUpperCase(),
+                    modelo: formatarCelulaExcel(row[4]).toUpperCase(),
+                    pedido: formatarCelulaExcel(row[5]).toUpperCase(),
+                    os: os.toUpperCase(),
+                    cliente: cliente.toUpperCase(),
+                    pecas: formatarCelulaExcel(row[8]).toUpperCase(),
+                    rastreio: formatarCelulaExcel(row[9]).toUpperCase(),
+                    previsao: formatarCelulaExcel(row[10], true).toUpperCase(),
+                    chegou: formatarCelulaExcel(row[11]) === '-' ? 'SIM' : formatarCelulaExcel(row[11]).toUpperCase()
+                });
+            }
+            return lista;
+        }
+
+        function lerPlanilhaLogistica(file, palavraChaveAba, callback) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                    const sheetName = workbook.SheetNames.find(n => normalizar(n).includes(palavraChaveAba)) || workbook.SheetNames[0];
+                    const lista = extrairListaLogistica(workbook.Sheets[sheetName]);
+                    callback(lista, sheetName);
+                } catch (err) {
+                    alert("Erro ao ler o arquivo. Verifique se a planilha não está protegida com senha.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        window.processarPlanilhaEnvios = function(e) {
+            if (!isAdmin || !e.target.files[0]) return;
+            lerPlanilhaLogistica(e.target.files[0], 'ENVIO', (lista, sheetName) => {
+                if (lista.length > 0) {
+                    salvarNoFirebase('envios', lista);
+                    alert(`Sucesso! ${lista.length} registros de Envio importados da guia "${sheetName}".`);
+                } else {
+                    alert("Nenhum registro de envio encontrado.");
+                }
+                e.target.value = '';
+            });
+        };
+
+        window.processarPlanilhaRetornos = function(e) {
+            if (!isAdmin || !e.target.files[0]) return;
+            lerPlanilhaLogistica(e.target.files[0], 'RETORNO', (lista, sheetName) => {
+                if (lista.length > 0) {
+                    salvarNoFirebase('retornos', lista);
+                    alert(`Sucesso! ${lista.length} registros de Retorno importados da guia "${sheetName}".`);
+                } else {
+                    alert("Nenhum registro de retorno encontrado.");
+                }
+                e.target.value = '';
+            });
+        };
+
+        // Importação Única de Todas as Guias de uma só vez
+        window.processarPlanilhaCompleta = function(e) {
+            if (!isAdmin || !e.target.files[0]) return;
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                    let resumo = [];
+
+                    const abaTec = workbook.SheetNames.find(n => normalizar(n).includes('TECNICO') || normalizar(n).includes('TÉCNICO') || normalizar(n).includes('CONTA'));
+                    if (abaTec) {
+                        const listaTec = extrairListaTecnicos(workbook.Sheets[abaTec]);
+                        if (listaTec.length > 0) {
+                            salvarNoFirebase('tecnicos', listaTec);
+                            resumo.push(`• Técnicos (${abaTec}): ${listaTec.length} registros`);
+                        }
+                    }
+
+                    const abaEnv = workbook.SheetNames.find(n => normalizar(n).includes('ENVIO'));
+                    if (abaEnv) {
+                        const listaEnv = extrairListaLogistica(workbook.Sheets[abaEnv]);
+                        if (listaEnv.length > 0) {
+                            salvarNoFirebase('envios', listaEnv);
+                            resumo.push(`• Envios (${abaEnv}): ${listaEnv.length} registros`);
+                        }
+                    }
+
+                    const abaRet = workbook.SheetNames.find(n => normalizar(n).includes('RETORNO'));
+                    if (abaRet) {
+                        const listaRet = extrairListaLogistica(workbook.Sheets[abaRet]);
+                        if (listaRet.length > 0) {
+                            salvarNoFirebase('retornos', listaRet);
+                            resumo.push(`• Retornos (${abaRet}): ${listaRet.length} registros`);
+                        }
+                    }
+
+                    if (resumo.length > 0) {
+                        alert("Importação concluída na nuvem!\n\n" + resumo.join("\n"));
+                    } else {
+                        alert("Nenhuma guia correspondente (Técnicos/Contas, Envios ou Retornos) foi identificada no arquivo.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao ler o arquivo Excel. Certifique-se de que ele não está bloqueado por senha de abertura.");
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // ==========================================
+        // EXPORTAÇÃO UNIFICADA (.XLSX COM 3 ABAS)
+        // ==========================================
+        window.exportarPlanilhaCompleta = function() {
+            const wb = XLSX.utils.book_new();
+
+            const wsTec = XLSX.utils.json_to_sheet(dadosTecnicos.map(i => ({
+                'Nome': i.nome, 'Empresa': i.empresa, 'Dados Bancários': i.banco,
+                'PF ou PJ': i.tipo, 'Cidade': i.cidade, 'Estado': i.estado,
+                'Código de Faturamento': i.fat, 'Código de Envio': i.envio, 'Telefone': i.tel
+            })));
+            XLSX.utils.book_append_sheet(wb, wsTec, "Técnicos");
+
+            const mapLogistica = (lista) => lista.map(i => ({
+                'DATA PED': i.dataPed, 'TÉCNICO': i.tecnico, 'DT FORNO': i.dtForno,
+                'NF': i.nf, 'MODELO': i.modelo, 'PEDIDO': i.pedido,
+                'O.S.': i.os, 'CLIENTE': i.cliente, 'PEÇAS': i.pecas,
+                'RASTREIO': i.rastreio, 'PREVISÃO': i.previsao, 'CHEGOU': i.chegou
+            }));
+
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mapLogistica(dadosEnvios)), "Envios");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mapLogistica(dadosRetornos)), "Retornos");
+
+            XLSX.writeFile(wb, "Controle_Tecnicos_Envios_Retornos.xlsx");
+        };
+
+        // Listeners de Filtros
+        document.getElementById('searchNome').addEventListener('input', filtrarTecnicos);
+        document.getElementById('filterTipo').addEventListener('change', filtrarTecnicos);
+        document.getElementById('filterEstado').addEventListener('change', filtrarTecnicos);
+        document.getElementById('btnLimparTec').addEventListener('click', () => {
+            document.getElementById('searchNome').value = '';
+            document.getElementById('filterTipo').value = '';
+            document.getElementById('filterEstado').value = '';
+            filtrarTecnicos();
+        });
+
+        document.getElementById('searchEnvio').addEventListener('input', filtrarEnvios);
+        document.getElementById('filterEnvTecnico').addEventListener('change', filtrarEnvios);
+        document.getElementById('btnLimparFiltroEnv').addEventListener('click', () => {
+            document.getElementById('searchEnvio').value = '';
+            document.getElementById('filterEnvTecnico').value = '';
+            document.getElementById('chkEnvSim').checked = true;
+            document.getElementById('chkEnvNao').checked = true;
+            document.getElementById('chkEnvOk').checked = true;
+            filtrarEnvios();
+        });
+
+        document.getElementById('searchRetorno').addEventListener('input', filtrarRetornos);
+        document.getElementById('filterRetTecnico').addEventListener('change', filtrarRetornos);
+        document.getElementById('btnLimparFiltroRet').addEventListener('click', () => {
+            document.getElementById('searchRetorno').value = '';
+            document.getElementById('filterRetTecnico').value = '';
+            document.getElementById('chkRetSim').checked = true;
+            document.getElementById('chkRetNao').checked = true;
+            document.getElementById('chkRetOk').checked = true;
+            filtrarRetornos();
+        });
+    </script>
+</body>
+</html>

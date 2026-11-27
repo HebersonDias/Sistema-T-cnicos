@@ -1141,9 +1141,7 @@
                         const rota = urlRotaGoogleMaps(origemTexto, localDestino);
                         const classe = item.mesmoEstado ? 'estado-cliente' : '';
                         const selo = '<span class="badge bg-success">Mesmo estado do cliente</span>';
-                        const numeroWhatsApp = t.tel && t.tel !== '-' ? String(t.tel).replace(/\D/g, '') : '';
-                        const numeroWhatsAppBR = numeroWhatsApp && !numeroWhatsApp.startsWith('55') ? `55${numeroWhatsApp}` : numeroWhatsApp;
-                        const telefone = numeroWhatsAppBR ? `<a class="link-success text-decoration-none fw-semibold" href="https://wa.me/${numeroWhatsAppBR}" target="_blank" rel="noopener noreferrer" title="Conversar pelo WhatsApp"><i class="fab fa-whatsapp me-1"></i>${escaparHtmlLocalizador(t.tel)}</a>` : 'Telefone não informado';
+                        const telefone = t.tel && t.tel !== '-' ? `<a class="link-info text-decoration-none" href="tel:${String(t.tel).replace(/\D/g,'')}">${escaparHtmlLocalizador(t.tel)}</a>` : 'Telefone não informado';
                         return `<article class="resultado-tecnico ${classe}"><div class="d-flex flex-wrap justify-content-between align-items-start gap-2"><div><div class="fw-bold">${indice+1}. ${escaparHtmlLocalizador(t.nome)}</div><div class="small text-muted">${escaparHtmlLocalizador(t.empresa || '')}</div></div><div class="resultado-distancia">${item.distancia.toFixed(1).replace('.', ',')} km</div></div><div class="my-2">${selo}</div><div class="small mb-2"><i class="fas fa-map-marker-alt text-danger me-1"></i>${escaparHtmlLocalizador(localDestino)} <span class="mx-2">•</span> ${telefone}</div><a class="btn btn-outline-primary btn-sm" href="${rota}" target="_blank" rel="noopener noreferrer"><i class="fas fa-route me-1"></i>Abrir rota no Google Maps</a></article>`;
                     }).join('');
                 }
@@ -1257,10 +1255,8 @@
             filtrados.forEach(item => {
                 const idx = dadosTecnicos.indexOf(item);
                 const badgeClass = item.tipo === 'PJ' ? 'bg-primary text-white' : 'bg-warning text-dark';
-                const numeroWhatsApp = item.tel && item.tel !== '-' ? String(item.tel).replace(/\D/g, '') : '';
-                const numeroWhatsAppBR = numeroWhatsApp && !numeroWhatsApp.startsWith('55') ? `55${numeroWhatsApp}` : numeroWhatsApp;
-                const telFormatado = numeroWhatsAppBR
-                    ? `<a href="https://wa.me/${numeroWhatsAppBR}" target="_blank" rel="noopener noreferrer" title="Conversar pelo WhatsApp" class="text-decoration-none text-success fw-semibold"><i class="fab fa-whatsapp me-1 small"></i>${item.tel}</a>`
+                const telFormatado = item.tel && item.tel !== '-' 
+                    ? `<a href="tel:${item.tel.replace(/\D/g, '')}" class="text-decoration-none text-info fw-semibold"><i class="fas fa-phone-alt me-1 small"></i>${item.tel}</a>` 
                     : '-';
 
                 const tdAcoes = isAdmin 
@@ -1515,7 +1511,7 @@
                     <td class="fw-bold text-warning">${item.os}</td>
                     <td>${item.cliente}</td>
                     <td class="fw-semibold">${item.pecas}</td>
-                    <td class="small" style="color: #adb5bd !important;">${item.rastreio}</td>
+                    <td class="small">${(item.rastreio && item.rastreio !== '-' && item.rastreio !== '?') ? `<a class="link-info text-decoration-underline" href="https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(String(item.rastreio).trim())}" target="_blank" rel="noopener noreferrer" title="Rastrear objeto nos Correios">${escaparHtmlLocalizador(item.rastreio)}</a>` : escaparHtmlLocalizador(item.rastreio || '-')}</td>
                     <td>${item.previsao}</td>
                     <td>${badgeStatus}</td>
                     ${tdAcoes}

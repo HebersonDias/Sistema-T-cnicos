@@ -679,7 +679,9 @@
         // Senhas do sistema
         const SENHA_ACESSO = "1307"; 
         const SENHA_ADMIN = "6101";
-        const CHAVE_SESSAO_ACESSO = "sistemaTecnicosAcessoLiberado_v1";
+        const CHAVE_SESSAO_ACESSO = "sistemaTecnicosAcessoLiberado_sessao_v2";
+        const TEMPO_INATIVIDADE_MS = 60 * 60 * 1000; // 1 hora
+        let temporizadorInatividade = null;
 
         let db = null;
         let dadosTecnicos = [];
@@ -709,16 +711,38 @@
             const app = initializeApp(firebaseConfig);
             db = getDatabase(app);
             iniciarEscutaFirebase();
+            iniciarControleInatividade();
         }
 
-        // Mantém o acesso neste navegador, inclusive após atualizar a página (F5).
-        // A autorização fica salva até os dados do site serem apagados.
+        // A sessionStorage mantém o login durante F5, mas é descartada ao fechar a aba.
+        // Remove também a chave antiga que mantinha o acesso indefinidamente.
         try {
-            if (localStorage.getItem(CHAVE_SESSAO_ACESSO) === 'sim') {
+            localStorage.removeItem('sistemaTecnicosAcessoLiberado_v1');
+            if (sessionStorage.getItem(CHAVE_SESSAO_ACESSO) === 'sim') {
                 liberarAcessoSistema();
             }
         } catch (erro) {
-            console.warn('Não foi possível recuperar a sessão salva.', erro);
+            console.warn('Não foi possível recuperar a sessão desta aba.', erro);
+        }
+
+        function encerrarSessaoPorInatividade() {
+            try { sessionStorage.removeItem(CHAVE_SESSAO_ACESSO); } catch (erro) {}
+            if (temporizadorInatividade) clearTimeout(temporizadorInatividade);
+            // Recarrega a página para voltar à tela de senha e encerrar a sessão visual.
+            window.location.reload();
+        }
+
+        function reiniciarTemporizadorInatividade() {
+            if (sessionStorage.getItem(CHAVE_SESSAO_ACESSO) !== 'sim') return;
+            if (temporizadorInatividade) clearTimeout(temporizadorInatividade);
+            temporizadorInatividade = setTimeout(encerrarSessaoPorInatividade, TEMPO_INATIVIDADE_MS);
+        }
+
+        function iniciarControleInatividade() {
+            reiniciarTemporizadorInatividade();
+            ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evento => {
+                document.addEventListener(evento, reiniciarTemporizadorInatividade, { passive: true });
+            });
         }
 
         document.getElementById('formLoginInicial').addEventListener('submit', function(e) {
@@ -726,8 +750,8 @@
             const digitada = document.getElementById('inputSenhaInicial').value.trim();
 
             if (digitada === SENHA_ACESSO) {
-                try { localStorage.setItem(CHAVE_SESSAO_ACESSO, 'sim'); } catch (erro) {
-                    console.warn('Não foi possível salvar a sessão neste navegador.', erro);
+                try { sessionStorage.setItem(CHAVE_SESSAO_ACESSO, 'sim'); } catch (erro) {
+                    console.warn('Não foi possível salvar a sessão nesta aba.', erro);
                 }
                 liberarAcessoSistema();
             } else {
